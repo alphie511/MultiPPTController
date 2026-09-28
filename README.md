@@ -1,6 +1,14 @@
 # MultiPPT 多屏同步放映
 
-Windows 桌面控制台：导入多份 **PPT / PDF**，指定每块屏幕播哪一份，一键开播，翻页时各屏同步。面向展厅、汇报和多屏舞台。
+> **一块控制台，多块屏幕，一份节奏。**  
+> 把每一份 PPT、每一份 PDF，送到它该在的屏幕——一键开播，翻页齐步走。
+
+做给 **展厅、汇报厅、多屏舞台** 的桌面放映指挥台：一台电脑导入多份文稿，指定各屏播哪一份；开播后操作员只按一次「下一步」，全场齐步。不是再做一个普通播放器，而是把「多屏各播各的」变成「一人指挥、全场同步」。
+
+- **分得清：** 主屏讲故事，副屏放数据，稿件互不抢屏。  
+- **控得住：** 导入、绑屏、开播，三步上台。  
+- **跟得上：** 单击动画先播再翻页，主副屏不各走各的。  
+- **接得住：** PPTX / PPT / WPS 稿 / PDF，同一控制台编排。
 
 <p align="center">
   <img src="src/MultiPPTController/Assets/logo.png" width="96" alt="MultiPPT Logo" />
@@ -97,4 +105,6 @@ MultiPPTController/
 
 ## 许可
 
-仅供内部展控使用。第三方组件：`pptx-vanilla-viewer`（Apache-2.0）、`pdf.js`（Apache-2.0）。
+本项目以 [MIT License](LICENSE) 开源。
+
+第三方组件：`pptx-vanilla-viewer`（Apache-2.0）、`pdf.js`（Apache-2.0）。
