@@ -1,0 +1,15 @@
+{
+  "name": "multippt-player-host",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "esbuild src/player.ts --bundle --format=iife --outfile=../../src/MultiPPTController/PlayerHost/vendor/player.js --legal-comments=inline --external:three --external:three/examples/jsm/controls/OrbitControls.js && node ./copy-assets.mjs"
+  },
+  "dependencies": {
+    "pdfjs-dist": "4.10.38",
+    "pptx-vanilla-viewer": "2.1.1"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.9"
+  }
+}

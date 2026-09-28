@@ -1,0 +1,4428 @@
+:where(:root) {
+	--pptx-background: #030712;
+	--pptx-foreground: #f3f4f6;
+	--pptx-card: #111827;
+	--pptx-card-foreground: #f3f4f6;
+	--pptx-popover: #111827;
+	--pptx-popover-foreground: #f3f4f6;
+	--pptx-primary: #6366f1;
+	--pptx-primary-foreground: #ffffff;
+	--pptx-secondary: #1f2937;
+	--pptx-secondary-foreground: #f3f4f6;
+	--pptx-muted: #1f2937;
+	--pptx-muted-foreground: #9ca3af;
+	--pptx-accent: #1f2937;
+	--pptx-accent-foreground: #f3f4f6;
+	--pptx-destructive: #ef4444;
+	--pptx-destructive-foreground: #ffffff;
+	--pptx-border: #374151;
+	--pptx-input: #374151;
+	--pptx-ring: #6366f1;
+	--pptx-inspector-active: #6366f1;
+	--pptx-inspector-border: #374151;
+	--pptx-radius: 0.5rem;
+}
+
+.pptxv {
+	position: relative;
+	display: flex;
+	flex-direction: column;
+	width: 100%;
+	height: 100%;
+	min-height: 0;
+	overflow: hidden;
+	background: var(--pptx-background);
+	color: var(--pptx-foreground);
+	font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+	font-size: 14px;
+}
+.pptxv *, .pptxv *::before, .pptxv *::after { box-sizing: border-box; }
+.pptxv:focus { outline: none; }
+.pptxv:focus-visible { outline: 2px solid var(--pptx-ring); outline-offset: -2px; }
+.pptxv :is(button, a, input, select, textarea, [tabindex]):focus-visible { outline: 2px solid var(--pptx-ring) !important; outline-offset: 2px; }
+.pptxv :is(button, [role='button']):not([role='switch']):not([data-pptx-compact]) { min-width: 24px; min-height: 24px; touch-action: manipulation; }
+@media (prefers-reduced-motion: reduce) {
+	.pptxv *, .pptxv *::before, .pptxv *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
+}
+@media (forced-colors: active) {
+	.pptxv :is(button, a, input, select, textarea, [tabindex]):focus-visible { outline-color: Highlight; }
+}
+
+/* Ribbon shell layout (primary row + nav row + tab bar + groups) lives in
+ * ribbon-css.ts; .pptxv-btn below is the shared icon-button primitive used by
+ * both the ribbon and the inspector. */
+.pptxv-btn {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 28px;
+	height: 28px;
+	padding: 0;
+	border: none;
+	border-radius: var(--pptx-radius);
+	background: transparent;
+	color: inherit;
+	cursor: pointer;
+}
+/* Breathing room around a text label. Deliberately at .pptxv-btn's own
+ * specificity and just after it, so it beats the padding: 0 above (a label
+ * touching the button edge reads as one run of words in a ribbon row) while any
+ * context that already dresses its own buttons, e.g. .pptxv-eqdlg-footer
+ * button, still wins and keeps its dialog metrics. */
+.pptxv-btn-text { padding: 0 6px; }
+/* Hit-area contract for a button whose content is a TEXT label rather than a
+ * 16px icon (makeButton's "text" option). The 28x28 box above cannot hold a
+ * word and .pptxv-btn does not clip, so without this the label is painted, and
+ * HIT-TESTED, outside the button's own rect and on top of its neighbours: a
+ * click at one button's centre then activates the button beside it, because the
+ * later sibling paints last. Sizing the box to its label, and refusing to
+ * flex-shrink below it (which would re-create the overflow the moment a tab row
+ * runs out of width), keeps every button's ink inside its own bounding rect, so
+ * a coordinate click always reaches the control it looks like it is over. This
+ * is authoritative on purpose; the specialisations that give a text button its
+ * own metrics (.pptxv-btn-pill, .pptxv-animation-preset,
+ * .pptxv-motion-path-preset, .pptxv-theme-gallery,
+ * .pptxv-presentation-touch-controls) are declared later in the sheet at equal
+ * specificity and keep winning. */
+.pptxv-btn.pptxv-btn-text {
+	width: auto;
+	min-width: 28px;
+	flex: none;
+	white-space: nowrap;
+}
+.pptxv-btn:hover:not(:disabled) { background: var(--pptx-accent); color: var(--pptx-accent-foreground); }
+.pptxv-btn:disabled { opacity: 0.4; cursor: default; }
+.pptxv-btn.is-active { background: var(--pptx-accent); color: var(--pptx-accent-foreground); }
+.pptxv-btn:focus-visible { outline: 2px solid var(--pptx-ring); outline-offset: 1px; }
+.pptxv-btn svg { width: 16px; height: 16px; display: block; }
+.pptxv-counter, .pptxv-zoom-label {
+	padding: 0 8px;
+	color: var(--pptx-muted-foreground);
+	white-space: nowrap;
+	font-variant-numeric: tabular-nums;
+}
+.pptxv-autosave-status {
+	padding: 0 6px;
+	font-size: 12px;
+	white-space: nowrap;
+	color: var(--pptx-muted-foreground);
+}
+.pptxv-autosave-status.is-saving { color: var(--pptx-accent-foreground); opacity: 0.8; }
+.pptxv-autosave-status.is-error { color: #dc2626; }
+
+/* Crash-recovery prompt (`autosave/autosave-recovery-dialog`). It reuses the
+   `pptxv-parity-*` dialog shell, so only its own three classes are declared
+   here; the shell rules live in `parity-dialog-css`. */
+.pptxv-autosave-recovery .pptxv-parity-dialog { width: min(420px, calc(100vw - 32px)); }
+.pptxv-autosave-recovery-message { margin: 0; line-height: 1.45; }
+.pptxv-autosave-recovery-age { margin: 0; color: var(--pptx-muted-foreground); font-size: 11px; }
+
+/* ── PowerPoint-style title bar ─────────────────────────────────────── */
+.pptxv-titlebar {
+	position: relative;
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	height: 36px;
+	padding: 0 8px;
+	border-bottom: 1px solid var(--pptx-border);
+	background: var(--pptx-card);
+	color: var(--pptx-card-foreground);
+	font-size: 11px;
+	user-select: none;
+}
+.pptxv-titlebar-logo {
+	display: inline-grid;
+	width: 20px;
+	height: 20px;
+	place-items: center;
+	border-radius: 3px;
+	background: #c43e1c;
+	color: #fff;
+	font-size: 10px;
+	font-weight: 700;
+}
+.pptxv-titlebar-autosave, .pptxv-titlebar-file { display: inline-flex; align-items: center; gap: 5px; min-width: 0; }
+.pptxv-titlebar-autosave-label, .pptxv-titlebar-status { color: var(--pptx-muted-foreground); white-space: nowrap; }
+.pptxv-titlebar-switch {
+	position: relative;
+	width: 28px;
+	height: 14px;
+	padding: 0;
+	border: 0;
+	border-radius: 999px;
+	background: var(--pptx-muted-foreground);
+	cursor: pointer;
+}
+.pptxv-titlebar-switch.is-on { background: var(--pptx-primary); }
+/* The host passed `autosave: false`: the switch is a policy the user cannot
+   override, so it reads as unavailable instead of silently doing nothing. */
+.pptxv-titlebar-switch.is-disabled { opacity: .45; cursor: not-allowed; }
+.pptxv-titlebar-switch-knob { position: absolute; top: 2px; left: 2px; width: 10px; height: 10px; border-radius: 50%; background: #fff; transition: transform 120ms ease; }
+/* The knob is parked at its "off" offset, so the travel is the difference
+   between the two offsets, not the "on" offset itself. */
+.pptxv-titlebar-switch.is-on .pptxv-titlebar-switch-knob { transform: translateX(13px); }
+.pptxv-titlebar-switch:focus-visible, .pptxv-titlebar-btn:focus-visible { outline: 2px solid var(--pptx-ring); outline-offset: 1px; }
+.pptxv-titlebar-btn { width: 24px; height: 24px; }
+.pptxv-titlebar-btn:hover:not(:disabled) { background: var(--pptx-accent); color: var(--pptx-accent-foreground); }
+.pptxv-titlebar-sep { width: 1px; height: 16px; background: var(--pptx-border); }
+.pptxv-titlebar-filename { overflow: hidden; max-width: 180px; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; font-weight: 500; }
+.pptxv-titlebar-dot { color: var(--pptx-muted-foreground); }
+.pptxv-titlebar-status.is-error { color: #dc2626; }
+.pptxv-titlebar-status.is-saving { color: #ca8a04; }
+.pptxv-titlebar-search { position: absolute; left: 50%; width: min(320px, 30vw); transform: translateX(-50%); }
+.pptxv-titlebar-spacer { flex: 1; min-width: 20px; }
+.pptxv-cmdsearch { position: relative; width: 100%; }
+.pptxv-cmdsearch-box { display: flex; align-items: center; gap: 5px; height: 24px; padding: 0 8px; border: 1px solid var(--pptx-border); border-radius: 4px; background: var(--pptx-muted); color: var(--pptx-muted-foreground); }
+.pptxv-cmdsearch-box svg { width: 13px; height: 13px; flex: none; }
+.pptxv-cmdsearch-input { width: 100%; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--pptx-foreground); font: inherit; }
+.pptxv-cmdsearch-menu { position: absolute; z-index: 20; top: calc(100% + 4px); right: 0; left: 0; overflow: hidden; border: 1px solid var(--pptx-border); border-radius: 4px; background: var(--pptx-card); box-shadow: 0 8px 20px rgb(0 0 0 / 0.16); }
+.pptxv-cmdsearch-item, .pptxv-cmdsearch-empty { display: block; width: 100%; padding: 7px 9px; border: 0; background: transparent; color: var(--pptx-foreground); font: inherit; text-align: left; }
+.pptxv-cmdsearch-item { cursor: pointer; }
+.pptxv-cmdsearch-item:hover { background: var(--pptx-accent); color: var(--pptx-accent-foreground); }
+.pptxv-cmdsearch-empty { color: var(--pptx-muted-foreground); }
+@media (max-width: 767px), (max-width: 1023px) and (max-height: 520px) { .pptxv-titlebar { display: none; } }
+
+/* ── Body: thumbnail rail + viewport ─────────────────────────────────── */
+.pptxv-body { display: flex; flex: 1; min-height: 0; }
+.pptxv-thumbs {
+	flex: none;
+	width: 168px;
+	min-height: 0;
+	border-right: 1px solid var(--pptx-border);
+	background: var(--pptx-card);
+	display: flex;
+	flex-direction: column;
+}
+/* Scrollable slide list; the Add Slide footer stays pinned below it. */
+.pptxv-thumbs-list {
+	flex: 1;
+	min-height: 0;
+	overflow-y: auto;
+	overflow-x: hidden;
+	padding: 8px;
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+}
+/* Virtualized rail: block layout for the absolute-positioned window. :where()
+   keeps the .pptxv-thumbs-virtualized part at zero specificity so the mobile
+   and presenting display:none rules on the rail still win. */
+:where(.pptxv-thumbs-virtualized) .pptxv-thumbs-list { display: block; }
+.pptxv-thumbs[hidden] { display: none; }
+.pptxv-thumbs-footer {
+	flex: none;
+	padding: 6px 8px;
+	border-top: 1px solid var(--pptx-border);
+}
+.pptxv-thumbs-footer[hidden] { display: none; }
+.pptxv-thumbs-add {
+	display: flex;
+	width: 100%;
+	align-items: center;
+	justify-content: center;
+	gap: 4px;
+	padding: 4px 8px;
+	border: 0;
+	border-radius: 4px;
+	background: transparent;
+	color: var(--pptx-muted-foreground);
+	font-size: 11px;
+	cursor: pointer;
+}
+.pptxv-thumbs-add:hover { background: var(--pptx-accent); color: var(--pptx-foreground); }
+.pptxv-thumbs-add svg { width: 12px; height: 12px; }
+.pptxv-thumb {
+	display: flex;
+	align-items: flex-start;
+	gap: 6px;
+	padding: 0;
+	border: none;
+	background: transparent;
+	color: inherit;
+	cursor: pointer;
+	text-align: left;
+}
+.pptxv-thumb-num {
+	flex: none;
+	width: 16px;
+	font-size: 11px;
+	color: var(--pptx-muted-foreground);
+	line-height: 1.4;
+}
+.pptxv-thumb-frame {
+	position: relative;
+	overflow: hidden;
+	border: 2px solid var(--pptx-border);
+	border-radius: var(--pptx-radius);
+	background: #fff;
+}
+.pptxv-thumb.is-active .pptxv-thumb-frame { border-color: var(--pptx-primary); }
+.pptxv-thumb:focus-visible .pptxv-thumb-frame { outline: 2px solid var(--pptx-ring); }
+/* Hidden slide (PowerPoint's Hide Slide): dim the preview and strike the slide
+   number with the shared diagonal slash. The slash carries the meaning on its
+   own, because dimming is a colour signal and a dark thumbnail looks dim too. */
+.pptxv-thumb[data-pptx-slide-hidden] .pptxv-thumb-frame > :first-child { opacity: 0.5; }
+.pptxv-thumb[data-pptx-slide-hidden] .pptxv-thumb-num { background-image: linear-gradient(to top right, transparent 47%, color-mix(in srgb, currentColor 60%, transparent) 47%, color-mix(in srgb, currentColor 60%, transparent) 53%, transparent 53%); }
+.pptxv-thumb-hidden {
+	position: absolute;
+	right: 2px;
+	bottom: 2px;
+	z-index: 10;
+	display: inline-flex;
+	color: var(--pptx-muted-foreground);
+}
+.pptxv-thumb-hidden svg { width: 12px; height: 12px; }
+.pptxv-sr-only {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	margin: -1px;
+	padding: 0;
+	overflow: hidden;
+	clip-path: inset(50%);
+	white-space: nowrap;
+	border: 0;
+}
+.pptxv-thumb-section { display: flex; flex-direction: column; gap: 6px; }
+.pptxv-thumb-section-header { display: flex; align-items: center; gap: 2px; min-width: 0; }
+.pptxv-thumb-section-toggle {
+	min-width: 0;
+	flex: 1;
+	border: 0;
+	background: transparent;
+	color: var(--pptx-foreground);
+	font-size: 11px;
+	font-weight: 600;
+	text-align: left;
+	cursor: pointer;
+}
+/* React's SectionBlock paints the same 10px p15:sectionPr/@clr dot. */
+.pptxv-thumb-section-color { display: inline-block; flex: none; width: 10px; height: 10px; border-radius: 50%; }
+.pptxv-thumb-section-actions { display: flex; gap: 1px; }
+.pptxv-thumb-section-actions button {
+	width: 18px;
+	height: 18px;
+	padding: 0;
+	border: 0;
+	border-radius: 3px;
+	background: transparent;
+	color: var(--pptx-muted-foreground);
+	cursor: pointer;
+}
+.pptxv-thumb-section-actions button:hover { background: var(--pptx-accent); color: var(--pptx-accent-foreground); }
+.pptxv-thumb-section-actions button:disabled { opacity: .35; cursor: default; }
+.pptxv-thumb-section-slides { display: flex; flex-direction: column; gap: 8px; }
+
+/* ── Viewport / stage ────────────────────────────────────────────────── */
+.pptxv-viewport {
+	flex: 1;
+	min-width: 0;
+	overflow: auto;
+	display: grid;
+	/*
+	 * Centred across, TOP-aligned down, which is what React's canvas does
+	 * (mx-auto my-4). Centring both ways only looks the same while the slide
+	 * nearly fills the area: on a phone the slide floated in the middle of a
+	 * screen-tall gap while React had it just under the toolbar.
+	 */
+	place-items: start center;
+	padding: 16px;
+	background: var(--pptx-muted);
+}
+.pptxv-stage-wrap {
+	position: relative;
+	overflow: hidden;
+	flex: none;
+	box-shadow: 0 2px 12px rgb(0 0 0 / 0.25);
+}
+/* The slide surface must NOT inherit the chrome's typography. The .pptxv root
+   sets font-size 14px for the ribbon/panels, and that cascaded into slide
+   content that authors no size of its own (table cells are the visible case),
+   so the same deck rendered its table text 14px here and 16px in the other
+   four bindings, which take the document default. Restating the baseline on
+   the stage keeps slide content independent of chrome styling. */
+.pptxv-stage { background: #fff; font-size: 16px; }
+/* In editor mode the slide surface must own all pointer/touch gestures so a
+   finger drag/resize/rotate isn't stolen by the browser for panning or
+   pinch-zoom. View-only mode keeps default touch behaviour so the deck scrolls. */
+.pptxv-editable .pptxv-stage-wrap { touch-action: none; }
+.pptxv-stage-wrap[data-draw-tool="pen"],
+.pptxv-stage-wrap[data-draw-tool="freeform"],
+.pptxv-stage-wrap[data-draw-tool="highlighter"] { cursor: crosshair; }
+.pptxv-stage-wrap[data-draw-tool="eraser"] { cursor: cell; }
+.pptxv-para { margin: 0; }
+
+/* ── Selection overlay (editing) ─────────────────────────────────────── */
+.pptxv-editor-overlay {
+	position: absolute;
+	inset: 0;
+	pointer-events: none;
+	z-index: 5;
+}
+.pptxv-sel-box {
+	position: absolute;
+	box-sizing: border-box;
+	border: 1px solid var(--pptx-ring);
+	pointer-events: none;
+	transform-origin: center;
+}
+.pptxv-sel-handle {
+	position: absolute;
+	width: 10px;
+	height: 10px;
+	margin: -5px 0 0 -5px;
+	padding: 0;
+	border: 1px solid var(--pptx-ring);
+	border-radius: 2px;
+	background: #fff;
+	pointer-events: auto;
+	/* The handle must own its touch gesture (no scroll/zoom stealing). */
+	touch-action: none;
+	box-shadow: 0 1px 2px rgb(0 0 0 / 0.3);
+}
+/*
+ * The contenteditable surface double-click opens over a text element.
+ *
+ * It is mounted in the editor overlay, which is pointer-events: none, so it
+ * has to take pointer events back or a click inside it never reaches the caret.
+ * The position matters just as much: the surface is placed with left/top in
+ * the overlay's space, and without this it laid out statically at the overlay's
+ * origin - the right size, a whole slide away from the text it was editing.
+ * Scoped to the text surface: the table-cell editor shares
+ * .pptxv-inline-editor but is an input stretched inside its own cell.
+ */
+.pptxv-inline-text-editor {
+	position: absolute;
+	z-index: 6;
+	box-sizing: border-box;
+	outline: none;
+	cursor: text;
+	pointer-events: auto;
+	white-space: pre-wrap;
+	overflow-wrap: break-word;
+	touch-action: none;
+}
+/*
+ * While an element's own inline text editor is open (see
+ * editor-stage-interactions.ts), suppress THIS element's static text render:
+ * the editor surface above it has no opaque background of its own, so the two
+ * rendering simultaneously produced a duplicated, offset "text shadow"
+ * (issue #182).
+ */
+.pptxv-inline-editing-source > .pptxv-text,
+.pptxv-inline-editing-source > .pptxv-wordart {
+	visibility: hidden;
+}
+.pptxv-rotate-stem {
+	position: absolute;
+	left: 50%;
+	width: 1px;
+	margin-left: -0.5px;
+	background: var(--pptx-ring);
+	pointer-events: none;
+}
+.pptxv-rotate-knob {
+	position: absolute;
+	left: 50%;
+	width: 12px;
+	height: 12px;
+	margin: -6px 0 0 -6px;
+	padding: 0;
+	border: 1px solid var(--pptx-ring);
+	border-radius: 50%;
+	background: #fff;
+	cursor: grab;
+	pointer-events: auto;
+	/* The knob must own its touch gesture (no scroll/zoom stealing). */
+	touch-action: none;
+	box-shadow: 0 1px 2px rgb(0 0 0 / 0.3);
+}
+/* PowerPoint's shape-adjustment handle: the amber diamond that reshapes a
+   preset (a:avLst) instead of resizing its box. Rotated 45deg rather than
+   drawn as a path so it scales with the coarse-pointer bump below. */
+.pptxv-adjust-handle {
+	position: absolute;
+	width: 10px;
+	height: 10px;
+	margin: -5px 0 0 -5px;
+	padding: 0;
+	border: 1px solid #b45309;
+	border-radius: 1px;
+	background: #fbbf24;
+	transform: rotate(45deg);
+	cursor: ew-resize;
+	pointer-events: auto;
+	/* The handle must own its touch gesture (no scroll/zoom stealing). */
+	touch-action: none;
+	box-shadow: 0 1px 2px rgb(0 0 0 / 0.3);
+}
+/* On coarse (touch) pointers a 10px handle is far too small to grab reliably;
+   grow the resize/rotate/adjust hit targets to a finger-friendly size. */
+@media (pointer: coarse) {
+	.pptxv-sel-handle { width: 22px; height: 22px; margin: -11px 0 0 -11px; }
+	.pptxv-rotate-knob { width: 24px; height: 24px; margin: -12px 0 0 -12px; }
+	.pptxv-adjust-handle { width: 20px; height: 20px; margin: -10px 0 0 -10px; }
+}
+/* Connector endpoint authoring: the two handles on a selected connector, and
+   the candidate connection sites revealed while one is being dragged. A bound
+   end is filled, a loose one hollow, so "is this connector actually attached?"
+   is answerable at a glance. */
+.pptxv-connector-endpoints {
+	position: absolute;
+	inset: 0;
+	pointer-events: none;
+	z-index: 6;
+}
+.pptxv-connector-endpoint {
+	position: absolute;
+	width: 10px;
+	height: 10px;
+	margin: -5px 0 0 -5px;
+	padding: 0;
+	border: 2px solid #fff;
+	border-radius: 9999px;
+	background: #fff;
+	box-shadow: 0 0 0 1px #16a34a;
+	cursor: crosshair;
+	pointer-events: auto;
+	touch-action: none;
+}
+.pptxv-connector-endpoint.is-attached {
+	background: #16a34a;
+}
+.pptxv-connection-site {
+	position: absolute;
+	width: 8px;
+	height: 8px;
+	margin: -4px 0 0 -4px;
+	border: 2px solid #3b82f6;
+	border-radius: 9999px;
+	background: rgb(96 165 250 / 0.6);
+}
+.pptxv-connection-site.is-snapped {
+	background: #3b82f6;
+}
+@media (pointer: coarse) {
+	.pptxv-connector-endpoint { width: 20px; height: 20px; margin: -10px 0 0 -10px; }
+}
+.pptxv-snap-layer {
+	position: absolute;
+	inset: 0;
+	pointer-events: none;
+}
+.pptxv-snap-line { position: absolute; background: var(--pptx-destructive); }
+.pptxv-snap-v { top: 0; bottom: 0; width: 1px; }
+.pptxv-snap-h { left: 0; right: 0; height: 1px; }
+
+/* ── Speaker notes panel ─────────────────────────────────────────────── */
+.pptxv-notes {
+	display: flex;
+	flex-direction: column;
+	flex: none;
+	border-top: 1px solid var(--pptx-border);
+	background: var(--pptx-card);
+	color: var(--pptx-card-foreground);
+}
+.pptxv-notes-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	width: 100%;
+	padding: 6px 10px;
+	border: none;
+	background: transparent;
+	color: var(--pptx-muted-foreground);
+	font-size: 0.8125rem;
+	font-weight: 600;
+	text-align: left;
+	cursor: pointer;
+}
+.pptxv-notes-header:hover { background: var(--pptx-accent); color: var(--pptx-accent-foreground); }
+.pptxv-notes-header:focus-visible { outline: 2px solid var(--pptx-ring); outline-offset: -2px; }
+.pptxv-notes-chevron { font-size: 0.75rem; }
+.pptxv-notes-body { padding: 0 10px 10px; }
+.pptxv-notes-body[hidden] { display: none; }
+.pptxv-notes-toolbar { display: flex; align-items: center; gap: 2px; margin: 0 0 6px; }
+.pptxv-notes-tool, .pptxv-notes-mode {
+  min-width: 26px; height: 24px; padding: 0 6px; border: 1px solid var(--pptx-border);
+  border-radius: 3px; background: var(--pptx-muted); color: var(--pptx-foreground); cursor: pointer;
+  font-size: 0.75rem; line-height: 1;
+}
+.pptxv-notes-mode { margin-left: auto; font-size: 0.6875rem; }
+.pptxv-notes-tool:hover, .pptxv-notes-mode:hover { background: var(--pptx-accent); color: var(--pptx-accent-foreground); }
+.pptxv-notes-tool:focus-visible, .pptxv-notes-mode:focus-visible { outline: 2px solid var(--pptx-ring); outline-offset: 1px; }
+.pptxv-notes-rich-editor {
+  box-sizing: border-box; width: 100%; min-height: 76px; max-height: 192px; overflow-y: auto;
+  border: 1px solid var(--pptx-border); border-radius: 4px; background: var(--pptx-muted);
+  color: var(--pptx-foreground); padding: 7px 9px; font-size: 0.75rem; line-height: 1.4; white-space: pre-wrap;
+}
+.pptxv-notes-rich-editor:focus-visible { outline: 2px solid var(--pptx-ring); outline-offset: -1px; }
+.pptxv-notes-rich-editor[contenteditable='false'] { cursor: default; opacity: 0.85; }
+.pptxv-notes-textarea {
+	box-sizing: border-box;
+	width: 100%;
+	min-height: 80px;
+	max-height: 200px;
+	padding: 8px;
+	border: 1px solid var(--pptx-border);
+	border-radius: var(--pptx-radius);
+	background: var(--pptx-muted);
+	color: var(--pptx-foreground);
+	font: inherit;
+	font-size: 0.8125rem;
+	line-height: 1.5;
+	resize: vertical;
+}
+.pptxv-notes-textarea:focus-visible { outline: 2px solid var(--pptx-ring); outline-offset: -1px; }
+.pptxv-notes-textarea:disabled,
+.pptxv-notes-textarea:read-only { cursor: default; opacity: 0.85; }
+.pptxv.pptxv-presenting .pptxv-notes { display: none; }
+/* On phones the collapsed strip is pure clutter: the mobile action sheet's
+   Notes button is the entry point, so hide the panel entirely until opened
+   (React parity). */
+@media (max-width: 767px), (max-width: 1023px) and (max-height: 520px) {
+	.pptxv-notes[data-collapsed='true'] { display: none; }
+}
+
+/* ── Bottom status bar ──────────────────────────────────────────────── */
+.pptxv-statusbar {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	/* Pinned from the shared metric rather than left to emerge from the padding
+	   + button box, which is how this row ended up 2px shorter than the others. */
+	min-height: 29px;
+	padding: 2px 8px;
+	border-top: 1px solid var(--pptx-border);
+	background: color-mix(in srgb, var(--pptx-secondary) 50%, transparent);
+	color: var(--pptx-muted-foreground);
+	font-size: 10px;
+}
+.pptxv-statusbar-spacer { flex: 1; }
+.pptxv-statusbar-sep { width: 1px; height: 12px; margin: 0 4px; background: var(--pptx-border); opacity: 0.6; }
+.pptxv-statusbar-btn {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 4px;
+	min-width: 24px;
+	height: 22px;
+	padding: 2px 4px;
+	border: none;
+	border-radius: 3px;
+	background: transparent;
+	color: inherit;
+	font: inherit;
+	cursor: pointer;
+}
+.pptxv-statusbar-btn:hover:not(:disabled) { background: var(--pptx-accent); color: var(--pptx-accent-foreground); }
+.pptxv-statusbar-btn:disabled { opacity: 0.4; cursor: default; }
+.pptxv-statusbar-btn.is-active { color: var(--pptx-primary); }
+.pptxv-statusbar-btn:focus-visible,
+.pptxv-statusbar-zoom:focus-visible { outline: 2px solid var(--pptx-ring); outline-offset: 1px; }
+.pptxv-statusbar-btn svg, .pptxv-statusbar-icon svg { width: 12px; height: 12px; display: block; }
+.pptxv-statusbar-counter, .pptxv-statusbar-text { white-space: nowrap; }
+.pptxv-statusbar-save.is-saving { color: #ca8a04; }
+.pptxv-statusbar-save.is-error { color: #dc2626; }
+.pptxv-statusbar-zoom {
+	min-width: 48px;
+	height: 22px;
+	padding: 2px 6px;
+	border: none;
+	border-radius: 3px;
+	background: transparent;
+	color: inherit;
+	font: inherit;
+	font-variant-numeric: tabular-nums;
+	cursor: pointer;
+}
+.pptxv-statusbar-zoom:hover { background: var(--pptx-accent); color: var(--pptx-accent-foreground); }
+.pptxv.pptxv-presenting .pptxv-statusbar { display: none; }
+
+@media (max-width: 767px), (max-width: 1023px) and (max-height: 520px) {
+	.pptxv-ribbon,
+	.pptxv-thumbs,
+	.pptxv-inspector,
+	.pptxv-statusbar { display: none; }
+	.pptxv-viewport { padding: 10px; }
+}
+
+/* ── Placeholder (element types without a renderer yet) ──────────────── */
+.pptxv-placeholder {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border: 1px dashed var(--pptx-muted-foreground);
+	border-radius: 4px;
+	background: rgb(127 127 127 / 0.08);
+}
+.pptxv-placeholder-label {
+	padding: 2px 8px;
+	font-size: 12px;
+	color: var(--pptx-muted-foreground);
+	background: rgb(127 127 127 / 0.12);
+	border-radius: 4px;
+}
+
+/* ── Media fallback chrome (authoring canvas only, see mediaFallbackVisual) ── */
+.pptxv-media-badge {
+	position: absolute;
+	inset: 0;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 4px;
+	font-size: 11px;
+	color: rgb(255 255 255 / 0.8);
+	filter: drop-shadow(0 1px 2px rgb(0 0 0 / 0.5));
+	pointer-events: none;
+}
+.pptxv-media-badge svg {
+	width: 48px;
+	height: 48px;
+}
+.pptxv-media-badge-missing {
+	color: rgb(255 255 255 / 0.6);
+}
+.pptxv-media-badge-missing svg {
+	width: 32px;
+	height: 32px;
+}
+.pptxv-media-placeholder {
+	flex-direction: column;
+	gap: 4px;
+	color: var(--pptx-muted-foreground);
+}
+.pptxv-media-placeholder svg {
+	width: 32px;
+	height: 32px;
+}
+
+/* ── Overlays ────────────────────────────────────────────────────────── */
+.pptxv-overlay {
+	position: absolute;
+	inset: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background: color-mix(in srgb, var(--pptx-background) 70%, transparent);
+	z-index: 10;
+}
+.pptxv-overlay[hidden] { display: none; }
+.pptxv-error-message { color: var(--pptx-destructive); padding: 0 24px; text-align: center; }
+.pptxv-empty { color: var(--pptx-muted-foreground); }
+
+/* ── In-content loading (e.g. a 3D chart scene probing/mounting three.js) ── */
+.pptxv-chart3d-loading {
+	width: 100%;
+	height: 100%;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 8px;
+	color: var(--pptx-muted-foreground);
+	font-size: 12px;
+}
+.pptxv-spinner {
+	width: 1.25rem;
+	height: 1.25rem;
+	border: 3px solid var(--pptx-border);
+	border-top-color: var(--pptx-primary);
+	border-radius: 50%;
+	animation: pptxv-spin 0.8s linear infinite;
+}
+@keyframes pptxv-spin {
+	to { transform: rotate(360deg); }
+}
+
+/* ── Presentation (fullscreen) mode ──────────────────────────────────── */
+.pptxv.pptxv-presenting .pptxv-ribbon,
+.pptxv.pptxv-presenting .pptxv-thumbs,
+.pptxv.pptxv-presenting .pptxv-titlebar { display: none; }
+/* A show letterboxes the slide in the middle of the black, so the editing
+   canvas's top alignment is overridden back to centred here. */
+.pptxv.pptxv-presenting .pptxv-viewport { background: #000; padding: 0; place-items: center; }
+.pptxv.pptxv-presenting .pptxv-stage-wrap { box-shadow: none; }
+/* A slide show is not a document: dragging across it must not select text the
+   way it does on the editing canvas. */
+.pptxv.pptxv-presenting .pptxv-stage-wrap,
+.pptxv.pptxv-presenting .pptxv-stage-wrap * { user-select: none; }
+
+
+.pptxv-marquee { position: absolute; z-index: 4; border: 1px solid var(--pptx-primary); background: color-mix(in srgb, var(--pptx-primary) 14%, transparent); pointer-events: none; }
+/* --pptxv-grid-size is set inline on .pptxv-stage from the deck's authored
+   viewProperties.gridSpacing (via computeGridSpacingPx); 10px matches this
+   binding's existing default when the deck has none. */
+.pptxv.pptxv-showGrid .pptxv-stage { background-image: linear-gradient(#cbd5e155 1px, transparent 1px), linear-gradient(90deg, #cbd5e155 1px, transparent 1px); background-size: var(--pptxv-grid-size, 10px) var(--pptxv-grid-size, 10px); }
+/* ── View > Rulers ───────────────────────────────────────────────────────
+ * The strips are absolutely positioned OUTSIDE the stage wrap (negative
+ * offsets), so the slide keeps its exact canvasSize * scale box and the
+ * selection overlay (inset: 0 on the same wrap) stays aligned with it. That
+ * costs two rules while rulers are on: the wrap must stop clipping (it is
+ * overflow: hidden so slide content never bleeds) and must reserve a gutter
+ * for the strips to occupy. Scoped to the non-presenting root because rulers
+ * are an editing aid and the slide show restores the clip. */
+.pptxv.pptxv-showRulers:not(.pptxv-presenting) .pptxv-stage-wrap {
+	overflow: visible;
+	margin: 20px 0 0 20px;
+}
+.pptxv-ruler-corner {
+	position: absolute;
+	top: -20px;
+	left: -20px;
+	z-index: 7;
+	width: 20px;
+	height: 20px;
+	background: var(--pptx-muted, #f1f5f9);
+	border-right: 1px solid var(--pptx-border, #cbd5e1);
+	border-bottom: 1px solid var(--pptx-border, #cbd5e1);
+}
+.pptxv-ruler-corner[hidden] { display: none; }
+.pptxv-ruler {
+	position: absolute;
+	z-index: 7;
+	display: block;
+	user-select: none;
+	touch-action: none;
+}
+.pptxv-ruler-h { top: -20px; left: 0; }
+.pptxv-ruler-v { top: 0; left: -20px; }
+.pptxv-ruler-h.is-draggable { cursor: row-resize; }
+.pptxv-ruler-v.is-draggable { cursor: col-resize; }
+.pptxv-ruler-bg { fill: var(--pptx-muted, #f1f5f9); }
+.pptxv-ruler-edge { stroke: var(--pptx-border, #cbd5e1); stroke-width: 1; }
+.pptxv-ruler-tick { stroke: var(--pptx-muted-foreground, #94a3b8); }
+.pptxv-ruler-highlight { fill: var(--pptx-primary, #2563eb); opacity: 0.2; }
+.pptxv-ruler-label { fill: var(--pptx-muted-foreground, #94a3b8); font-family: system-ui, sans-serif; }
+.pptxv-alignment-guide { position: absolute; z-index: 6; pointer-events: none; background: #00a6ff; }
+.pptxv-alignment-guide.is-h { left: 0; right: 0; height: 1px; }
+.pptxv-alignment-guide.is-v { top: 0; bottom: 0; width: 1px; }
+/* Colour swatch control (native <input type=color>, used by the inspector). */
+.pptxv-color {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 28px;
+	height: 28px;
+	border-radius: var(--pptx-radius);
+	cursor: pointer;
+}
+.pptxv-color:hover { background: var(--pptx-accent); }
+.pptxv-color.is-disabled { opacity: 0.4; cursor: default; }
+.pptxv-color-input {
+	width: 20px;
+	height: 20px;
+	padding: 0;
+	border: 1px solid var(--pptx-border);
+	border-radius: 4px;
+	background: none;
+	cursor: pointer;
+}
+.pptxv-color-input:disabled { cursor: default; }
+
+/* Numeric field */
+.pptxv-field {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	font-size: 12px;
+	color: var(--pptx-muted-foreground);
+}
+.pptxv-field-label { white-space: nowrap; }
+.pptxv-field-input {
+	width: 64px;
+	height: 26px;
+	padding: 2px 6px;
+	border: 1px solid var(--pptx-border);
+	border-radius: var(--pptx-radius);
+	background: var(--pptx-background);
+	color: var(--pptx-foreground);
+	font: inherit;
+	font-size: 12px;
+}
+.pptxv-field-compact .pptxv-field-input { width: 48px; }
+.pptxv-field-input:focus-visible { outline: 2px solid var(--pptx-ring); outline-offset: -1px; }
+.pptxv-field-input:disabled { opacity: 0.5; }
+
+/* ── Property inspector ──────────────────────────────────────────────── */
+.pptxv-inspector {
+	flex: none;
+	width: 288px;
+	overflow-y: auto;
+	border-left: 1px solid var(--pptx-border);
+	background: var(--pptx-card);
+	color: var(--pptx-card-foreground);
+	font-size: 12px;
+}
+.pptxv-inspector[hidden] { display: none; }
+/* React-style tab strip: [Elements | Properties | Comments]. */
+.pptxv-inspector-tabs {
+	display: flex;
+	align-items: center;
+	gap: 2px;
+	padding: 6px 8px;
+	border-bottom: 1px solid var(--pptx-border);
+}
+.pptxv-inspector-tab {
+	padding: 4px 8px;
+	border: none;
+	border-radius: 4px;
+	background: var(--pptx-muted);
+	color: var(--pptx-muted-foreground);
+	font: inherit;
+	font-size: 11px;
+	cursor: pointer;
+}
+.pptxv-inspector-tab:hover { color: var(--pptx-foreground); background: var(--pptx-accent); }
+.pptxv-inspector-tab.is-active { background: var(--pptx-primary); color: var(--pptx-primary-foreground, #fff); }
+/* Elements tab: layer-order rows. */
+.pptxv-inspector-layer-list { display: flex; flex-direction: column; gap: 2px; }
+.pptxv-inspector-layer-row {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	width: 100%;
+	padding: 4px 8px;
+	border: none;
+	border-radius: 4px;
+	background: transparent;
+	color: inherit;
+	font: inherit;
+	text-align: left;
+	cursor: pointer;
+}
+.pptxv-inspector-layer-row:hover { background: var(--pptx-muted); }
+.pptxv-inspector-layer-row.is-selected { background: color-mix(in srgb, var(--pptx-primary) 25%, transparent); color: var(--pptx-primary); }
+.pptxv-inspector-layer-num { min-width: 16px; color: var(--pptx-muted-foreground); text-align: right; }
+.pptxv-inspector-layer-label { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* No-selection Properties deck panel + Comments tab. */
+.pptxv-inspector-row-value { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: right; }
+.pptxv-inspector-deck[hidden] { display: none; }
+.pptxv-inspector-deck-btn {
+	width: 100%;
+	margin-top: 4px;
+	padding: 5px 8px;
+	border: 1px solid var(--pptx-border);
+	border-radius: var(--pptx-radius);
+	background: var(--pptx-muted);
+	color: inherit;
+	font: inherit;
+	font-size: 11px;
+	cursor: pointer;
+}
+.pptxv-inspector-deck-btn:hover { background: var(--pptx-accent); }
+.pptxv-inspector-deck-btn:disabled { opacity: 0.5; cursor: default; }
+.pptxv-inspector-deck-btn-row { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; }
+/* SLIDE SIZE card: the Landscape / Portrait segmented toggle. */
+.pptxv-slide-size-orientation { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; margin: 6px 0; }
+.pptxv-slide-size-orientation button {
+	padding: 5px 8px;
+	border: 1px solid var(--pptx-border);
+	border-radius: var(--pptx-radius);
+	background: var(--pptx-muted);
+	color: inherit;
+	font: inherit;
+	font-size: 11px;
+	cursor: pointer;
+}
+.pptxv-slide-size-orientation button:hover:not(:disabled) { background: var(--pptx-accent); }
+.pptxv-slide-size-orientation button.is-active {
+	border-color: var(--pptx-primary);
+	background: var(--pptx-primary);
+	color: var(--pptx-primary-foreground, #fff);
+}
+.pptxv-slide-size-orientation button:disabled { opacity: 0.5; cursor: default; }
+.pptxv-inspector-theme-select { width: 100%; margin-bottom: 6px; }
+.pptxv-inspector-override-rows { display: flex; flex-direction: column; gap: 5px; margin-top: 6px; }
+.pptxv-inspector-override-row { display: grid; grid-template-columns: minmax(0, 1fr) 14px minmax(0, 1fr); align-items: center; gap: 6px; }
+.pptxv-inspector-override-row .pptxv-inspector-row-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pptxv-inspector-override-swatch {
+	width: 14px;
+	height: 14px;
+	border: 1px solid var(--pptx-border);
+	border-radius: 3px;
+	flex-shrink: 0;
+}
+.pptxv-inspector-comment { padding: 6px 0; border-bottom: 1px solid color-mix(in srgb, var(--pptx-border) 60%, transparent); }
+.pptxv-inspector-comment.is-resolved { opacity: 0.6; }
+.pptxv-inspector-comment-meta { font-size: 11px; font-weight: 600; }
+.pptxv-inspector-comment-text { margin: 2px 0 4px; }
+.pptx-comment-mention { border-radius: 3px; padding: 0 2px; font-weight: 600; color: var(--pptx-primary, #6366f1); background: color-mix(in srgb, var(--pptx-primary, #6366f1) 15%, transparent); }
+.pptxv-inspector-comment-actions { display: flex; gap: 6px; }
+.pptxv-inspector-comment-action {
+	padding: 2px 6px;
+	border: none;
+	border-radius: 4px;
+	background: var(--pptx-muted);
+	color: var(--pptx-muted-foreground);
+	font: inherit;
+	font-size: 10px;
+	cursor: pointer;
+}
+.pptxv-inspector-comment-action:hover { background: var(--pptx-accent); color: var(--pptx-accent-foreground); }
+.pptxv-inspector-comment-add[hidden] { display: none; }
+.pptxv-inspector-comment-input {
+	width: 100%;
+	margin-top: 6px;
+	padding: 6px 8px;
+	border: 1px solid var(--pptx-border);
+	border-radius: var(--pptx-radius);
+	background: var(--pptx-background);
+	color: var(--pptx-foreground);
+	font: inherit;
+	font-size: 12px;
+	resize: vertical;
+}
+.pptxv-inspector-body { padding: 10px 12px; }
+.pptxv-inspector-body[hidden] { display: none; }
+.pptxv-inspector-empty { color: var(--pptx-muted-foreground); margin: 0; }
+.pptxv-inspector-empty[hidden] { display: none; }
+.pptxv-inspector-muted-text { font-size: 11px; color: var(--pptx-muted-foreground); }
+.pptxv-ole-info { display: flex; flex-direction: column; gap: 6px; font-size: 11px; }
+.pptxv-ole-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.pptxv-ole-row[hidden] { display: none; }
+.pptxv-ole-row span:first-child { color: var(--pptx-muted-foreground); }
+.pptxv-ole-value { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pptxv-ole-badge {
+	display: inline-flex;
+	align-items: center;
+	border-radius: 999px;
+	padding: 1px 8px;
+	font-size: 10px;
+	font-weight: 500;
+	background: rgba(34, 197, 94, 0.2);
+	color: #4ade80;
+}
+.pptxv-ole-badge.is-linked { background: rgba(59, 130, 246, 0.2); color: #60a5fa; }
+/*
+ * A section is a CARD, the way React's inspector draws one (rounded, bordered,
+ * card background, 8px of padding). Left as a bare bottom margin, the panel
+ * read as one unbroken column of loose labels with nothing tying a heading to
+ * the fields under it.
+ */
+.pptxv-inspector-section {
+	margin-bottom: 10px;
+	padding: 8px;
+	border: 1px solid var(--pptx-border);
+	border-radius: 6px;
+	background: var(--pptx-card);
+	color: var(--pptx-card-foreground);
+}
+.pptxv-inspector-section[hidden] { display: none; }
+.pptxv-inspector-section-title {
+	margin: 0 0 6px;
+	font-size: 11px;
+	font-weight: 600;
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+	color: var(--pptx-muted-foreground);
+}
+.pptxv-inspector-lock-row {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+}
+.pptxv-inspector-lock-row .pptxv-inspector-section-title { margin: 0; }
+.pptxv-inspector-lock-btn.is-active { color: #f59e0b; }
+.pptxv-inspector-grid {
+	display: grid;
+	grid-template-columns: repeat(2, 1fr);
+	gap: 6px 8px;
+}
+.pptxv-inspector-grid .pptxv-field { justify-content: space-between; }
+.pptxv-inspector-grid .pptxv-field-input { width: 100%; }
+.pptxv-inspector-row {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	margin-bottom: 8px;
+}
+.pptxv-inspector-row-label { color: var(--pptx-muted-foreground); }
+
+/* Table quick-style preset swatch gallery. */
+.pptxv-table-presets-label { display: block; margin: 8px 0 4px; font-size: 10px; color: var(--pptx-muted-foreground); }
+.pptxv-table-presets-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-bottom: 8px; }
+.pptxv-table-preset-swatch {
+	display: flex;
+	flex-direction: column;
+	height: 40px;
+	padding: 0;
+	overflow: hidden;
+	border: 1px solid var(--pptx-border);
+	border-radius: 5px;
+	background: none;
+	cursor: pointer;
+}
+.pptxv-table-preset-swatch:hover { border-color: var(--pptx-primary); }
+.pptxv-table-preset-swatch span { flex: 1; }
+.pptxv-table-preset-swatch span:last-child { border-top: 1px solid; }
+
+/* Compact SmartArt layout switcher and editable text pane. */
+.pptxv-smartart-label { display: block; margin-bottom: 6px; color: var(--pptx-muted-foreground); }
+.pptxv-smartart-layout-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 5px; margin-bottom: 10px; }
+.pptxv-smartart-layout-button {
+	min-width: 0;
+	padding: 6px 3px;
+	border: 1px solid var(--pptx-border);
+	border-radius: var(--pptx-radius);
+	background: transparent;
+	color: var(--pptx-muted-foreground);
+	font: inherit;
+	font-size: 10px;
+	cursor: pointer;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+.pptxv-smartart-layout-button:hover { background: var(--pptx-accent); color: var(--pptx-accent-foreground); }
+.pptxv-smartart-layout-button.is-active { border-color: var(--pptx-primary); background: color-mix(in srgb, var(--pptx-primary) 16%, transparent); color: var(--pptx-primary); }
+.pptxv-smartart-nodes { display: flex; max-height: 208px; flex-direction: column; gap: 5px; overflow-y: auto; }
+.pptxv-smartart-node { display: grid; grid-template-columns: 20px minmax(0, 1fr); align-items: center; gap: 5px; }
+.pptxv-smartart-node-index { color: var(--pptx-muted-foreground); text-align: center; }
+.pptxv-smartart-node-input { min-width: 0; height: 26px; box-sizing: border-box; padding: 2px 6px; border: 1px solid var(--pptx-border); border-radius: var(--pptx-radius); background: var(--pptx-background); color: var(--pptx-foreground); font: inherit; }
+.pptxv-smartart-node-input:focus-visible { outline: 2px solid var(--pptx-ring); outline-offset: -1px; }
+
+/* Select / checkbox / range fields (text/image/table inspector sections). */
+.pptxv-field-select,
+.pptxv-field-checkbox,
+.pptxv-field-range {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+	margin-bottom: 8px;
+}
+.pptxv-field-checkbox { justify-content: flex-start; }
+.pptxv-field-checkbox .pptxv-field-label { order: 2; }
+.pptxv-field-select-input {
+	height: 26px;
+	padding: 2px 6px;
+	border: 1px solid var(--pptx-border);
+	border-radius: var(--pptx-radius);
+	background: var(--pptx-background);
+	color: var(--pptx-foreground);
+	font: inherit;
+	font-size: 12px;
+}
+.pptxv-field-select-input:disabled { opacity: 0.5; }
+.pptxv-field-range { flex-direction: column; align-items: stretch; }
+.pptxv-field-range-row { display: flex; align-items: center; gap: 8px; }
+.pptxv-field-range-row input[type='range'] { flex: 1; }
+.pptxv-field-range-readout {
+	min-width: 34px;
+	text-align: right;
+	color: var(--pptx-muted-foreground);
+	font-variant-numeric: tabular-nums;
+}
+
+/* Gradient fill sub-panel (Fill & Stroke section). */
+.pptxv-inspector-gradient { margin: 4px 0 8px; padding-left: 4px; border-left: 2px solid var(--pptx-border); }
+.pptxv-inspector-gradient[hidden] { display: none; }
+.pptxv-inspector-gradient-stops { display: flex; flex-direction: column; gap: 4px; margin: 6px 0; }
+
+/* Presentation mode hides all editing chrome (the ribbon is covered by
+ * `.pptxv.pptxv-presenting .pptxv-ribbon` in css.ts). */
+.pptxv.pptxv-presenting .pptxv-inspector { display: none; }
+
+/* ── Accessibility checker ───────────────────────────────────────────── */
+.pptxv-accessibility-panel {
+	position: absolute;
+	top: 56px;
+	right: 12px;
+	z-index: 20;
+	width: min(360px, calc(100% - 24px));
+	max-height: min(560px, calc(100% - 72px));
+	overflow: auto;
+	border: 1px solid var(--pptx-border);
+	border-radius: calc(var(--pptx-radius) + 2px);
+	background: var(--pptx-card);
+	color: var(--pptx-card-foreground);
+	box-shadow: 0 16px 36px rgb(0 0 0 / 20%);
+}
+.pptxv-accessibility-panel[hidden] { display: none; }
+.pptxv-accessibility-header { display: flex; align-items: center; justify-content: space-between; padding: 12px; border-bottom: 1px solid var(--pptx-border); }
+.pptxv-accessibility-title { margin: 0; font-size: 13px; }
+.pptxv-accessibility-close { border: 0; border-radius: var(--pptx-radius); background: transparent; color: var(--pptx-foreground); cursor: pointer; font: inherit; font-size: 12px; padding: 4px 7px; }
+.pptxv-accessibility-close:hover { background: var(--pptx-accent); color: var(--pptx-accent-foreground); }
+.pptxv-accessibility-summary { margin: 0; padding: 8px 12px; color: var(--pptx-muted-foreground); font-size: 11px; }
+.pptxv-accessibility-list { padding: 0 8px 8px; }
+.pptxv-accessibility-group { margin-top: 8px; }
+.pptxv-accessibility-group-title { margin: 0 4px 5px; color: var(--pptx-muted-foreground); font-size: 10px; letter-spacing: .05em; text-transform: uppercase; }
+.pptxv-accessibility-issue { display: grid; width: 100%; grid-template-columns: 1fr auto; gap: 3px 10px; margin: 3px 0; padding: 8px; border: 0; border-left: 3px solid var(--pptx-border); border-radius: var(--pptx-radius); background: var(--pptx-muted); color: inherit; cursor: pointer; font: inherit; text-align: left; }
+.pptxv-accessibility-group.is-error .pptxv-accessibility-issue { border-left-color: #d64545; }
+.pptxv-accessibility-group.is-warning .pptxv-accessibility-issue { border-left-color: #d9911b; }
+.pptxv-accessibility-group.is-tip .pptxv-accessibility-issue { border-left-color: #4b8bc5; }
+.pptxv-accessibility-issue:hover { background: var(--pptx-accent); color: var(--pptx-accent-foreground); }
+.pptxv-accessibility-issue-type { font-size: 11px; }
+.pptxv-accessibility-issue-message { grid-column: 1 / -1; color: var(--pptx-muted-foreground); font-size: 11px; line-height: 1.35; }
+.pptxv-accessibility-issue:hover .pptxv-accessibility-issue-message { color: inherit; }
+.pptxv-accessibility-issue-slide { color: var(--pptx-muted-foreground); font-size: 10px; }
+.pptxv-accessibility-empty { margin: 12px 4px; color: var(--pptx-muted-foreground); font-size: 12px; text-align: center; }
+.pptxv.pptxv-presenting .pptxv-accessibility-panel { display: none; }
+
+/* ── Keyboard-shortcut cheat sheet ("?") ─────────────────────────────── */
+.pptxv-shortcuts-panel {
+	position: absolute;
+	top: 56px;
+	right: 12px;
+	z-index: 40;
+	width: min(384px, calc(100% - 24px));
+	overflow: hidden;
+	border: 1px solid var(--pptx-border);
+	border-radius: calc(var(--pptx-radius) + 2px);
+	background: var(--pptx-card);
+	color: var(--pptx-card-foreground);
+	box-shadow: 0 18px 50px rgb(0 0 0 / 30%);
+}
+.pptxv-shortcuts-panel[hidden] { display: none; }
+.pptxv-shortcuts-header { display: flex; align-items: center; justify-content: space-between; padding: 9px 12px; border-bottom: 1px solid var(--pptx-border); }
+.pptxv-shortcuts-title { margin: 0; font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; }
+.pptxv-shortcuts-close { border: 0; border-radius: var(--pptx-radius); background: transparent; color: var(--pptx-foreground); cursor: pointer; font: inherit; font-size: 11px; padding: 5px 8px; }
+.pptxv-shortcuts-close:hover { background: var(--pptx-accent); color: var(--pptx-accent-foreground); }
+.pptxv-shortcuts-list { max-height: 280px; overflow: auto; padding: 8px; }
+.pptxv-shortcuts-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 7px 9px; border-radius: var(--pptx-radius); font-size: 12px; }
+.pptxv-shortcuts-row:nth-child(odd) { background: var(--pptx-muted); }
+.pptxv-shortcuts-keys { color: var(--pptx-muted-foreground); font: 11px ui-monospace, SFMono-Regular, Menlo, monospace; white-space: nowrap; }
+.pptxv.pptxv-presenting .pptxv-shortcuts-panel { display: none; }
+
+/* ── Canvas right-click menu ──────────────────────────────────────────── */
+/* Positioned at the pointer in viewport coordinates, so it is fixed rather
+ * than absolute; it is mounted into the .pptxv root (not the body) so a host
+ * ViewerTheme's inline --pptx-* overrides reach it. Every colour still carries
+ * a literal fallback for the body-mounted case. */
+.pptxv-context-menu {
+	position: fixed;
+	z-index: 1150;
+	min-width: 184px;
+	max-height: min(70vh, 560px);
+	overflow-y: auto;
+	padding: 4px;
+	border: 1px solid var(--pptx-border, #e2e8f0);
+	border-radius: 8px;
+	background: var(--pptx-popover, var(--pptx-card, #ffffff));
+	color: var(--pptx-popover-foreground, var(--pptx-card-foreground, #0f172a));
+	box-shadow: 0 8px 24px rgb(0 0 0 / 24%);
+}
+.pptxv-context-menu-item {
+	display: flex;
+	align-items: center;
+	width: 100%;
+	padding: 6px 10px;
+	border: none;
+	border-radius: 6px;
+	background: transparent;
+	color: inherit;
+	font: inherit;
+	font-size: 0.8125rem;
+	text-align: left;
+	cursor: pointer;
+}
+.pptxv-context-menu-item:hover:not(:disabled) { background: var(--pptx-accent, #eef2f7); color: var(--pptx-accent-foreground, inherit); }
+.pptxv-context-menu-item:disabled { opacity: .45; cursor: default; }
+.pptxv-context-menu-item.is-danger { color: #d64545; }
+.pptxv-context-menu-item.is-danger:hover:not(:disabled) { background: #d6454518; color: #d64545; }
+.pptxv-context-menu-separator { height: 1px; margin: 4px 6px; background: var(--pptx-border, #e2e8f0); }
+
+/* Floating value readout shown while a chart data point is dragged on canvas. */
+.pptxv-chart-drag-badge {
+	position: absolute;
+	top: 4px;
+	right: 4px;
+	padding: 1px 6px;
+	border-radius: 4px;
+	background: #1e293b;
+	color: #f8fafc;
+	font-size: 10px;
+	line-height: 1.5;
+	pointer-events: none;
+}
+
+/* Inline title editor opened by double-clicking a chart's title. */
+.pptxv-chart-title-input {
+	position: absolute;
+	left: 50%;
+	top: 2px;
+	transform: translateX(-50%);
+	z-index: 10;
+	width: 60%;
+	box-sizing: border-box;
+	text-align: center;
+	font-size: 11px;
+	padding: 2px 4px;
+	border: 1px solid #cbd5e1;
+	border-radius: 4px;
+	background: #ffffff;
+	color: #0f172a;
+	box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+
+/* ── Ribbon shell and React-aligned command row ─────────────────────────── */
+.pptxv-ribbon {
+	display: flex;
+	flex-direction: column;
+	border-bottom: 1px solid var(--pptx-border);
+	background: var(--pptx-card);
+	color: var(--pptx-card-foreground);
+	flex: none;
+}
+.pptxv-ribbon-primary {
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+	gap: 4px;
+	min-height: 26px;
+	padding: 4px 8px;
+	border-bottom: 1px solid var(--pptx-border);
+}
+.pptxv-ribbon-primary:empty { display: none; }
+.pptxv-ribbon-primary[hidden] { display: none; }
+/* ── Tab bar ─────────────────────────────────────────────────────────── */
+.pptxv-ribbon-tabs {
+	display: flex;
+	align-items: center;
+	gap: 2px;
+	padding: 0 6px;
+	border-bottom: 1px solid var(--pptx-border);
+	overflow-x: auto;
+}
+.pptxv-ribbon-tabs[hidden] { display: none; }
+.pptxv-ribbon-tab {
+	padding: 6px 12px;
+	border: none;
+	border-bottom: 2px solid transparent;
+	background: transparent;
+	color: var(--pptx-muted-foreground);
+	font: inherit;
+	font-size: 12px;
+	font-weight: 500;
+	white-space: nowrap;
+	cursor: pointer;
+}
+.pptxv-ribbon-tab:hover { color: var(--pptx-foreground); background: var(--pptx-accent); }
+.pptxv-ribbon-tab.is-active { color: var(--pptx-foreground); border-bottom-color: var(--pptx-primary); }
+.pptxv-ribbon-tab-file { color: var(--pptx-primary); }
+.pptxv-ribbon-tab-file.is-active {
+	color: #fff;
+	background: color-mix(in srgb, var(--pptx-primary) 80%, transparent);
+	border-radius: var(--pptx-radius);
+}
+
+/* ── Tab content + groups ────────────────────────────────────────────── */
+/* One horizontal row (React: flex flex-nowrap + overflow-x) instead of the
+ * old two-row wrap; each group is a column with its label below the buttons. */
+.pptxv-ribbon-tab-content {
+	display: flex;
+	flex-wrap: nowrap;
+	align-items: stretch;
+	gap: 0;
+	min-height: 82px;
+	padding: 2px 4px;
+	overflow-x: auto;
+	overflow-y: hidden;
+}
+.pptxv-ribbon-tab-content[hidden] { display: none; }
+/* Design tab theme galleries: .pptxv-btn is a fixed 28x28 icon-button
+   primitive elsewhere in the ribbon, so it needs an auto-width override here
+   to fit a swatch preview + label without overlapping its neighbours. */
+.pptxv-theme-gallery { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 4px 8px; }
+.pptxv-theme-gallery .pptxv-btn { width: auto; height: auto; gap: 6px; padding: 4px 10px 4px 4px; white-space: nowrap; }
+.pptxv-theme-gallery-host { position: relative; display: inline-flex; }
+/* The galleries are popovers hung off Browse Themes / Edit Theme, so they must
+   float above the ribbon rather than widen it. */
+.pptxv-theme-gallery-host > .pptxv-theme-gallery {
+	position: absolute;
+	top: calc(100% + 4px);
+	left: 0;
+	z-index: 30;
+	max-width: 320px;
+	border: 1px solid var(--pptx-border);
+	border-radius: var(--pptx-radius);
+	background: var(--pptx-card);
+	box-shadow: 0 8px 24px rgb(0 0 0 / 0.28);
+}
+.pptxv-theme-gallery[hidden] { display: none; }
+.pptxv-theme-swatch-preview { display: block; width: 20px; height: 20px; flex: none; border: 1px solid var(--pptx-border); border-radius: 4px; }
+.pptxv-record-dot { width: 12px; height: 12px; margin: 7px; border-radius: 50%; background: #ef4444; }
+.pptxv-shortcut-help { align-self: center; padding: 5px 8px; color: var(--pptx-muted-foreground); font-size: 11px; }
+.pptxv-ribbon-insert-content {
+	flex-wrap: nowrap;
+	overflow-x: auto;
+	overflow-y: hidden;
+}
+.pptxv-rgroup {
+	display: flex;
+	flex: none;
+	flex-direction: column;
+	align-items: center;
+	justify-content: space-between;
+	gap: 2px;
+	padding: 2px 8px;
+	border-right: 1px solid color-mix(in srgb, var(--pptx-border) 40%, transparent);
+}
+.pptxv-rgroup:last-child { border-right: none; }
+.pptxv-rgroup-row { display: flex; flex-wrap: nowrap; align-items: center; gap: 2px; }
+/* Sentence-case tiny muted label below each group (React: 9px, no uppercase). */
+.pptxv-rgroup-label {
+	font-size: 9px;
+	line-height: 1;
+	color: var(--pptx-muted-foreground);
+}
+.pptxv-rgroup .pptxv-btn.is-active { background: var(--pptx-accent); color: var(--pptx-accent-foreground); }
+/* Labelled pill button (React's pill token): icon + text on a muted chip. */
+.pptxv-btn.pptxv-btn-pill {
+	width: auto;
+	gap: 6px;
+	padding: 0 10px;
+	background: var(--pptx-muted);
+	font-size: 12px;
+	white-space: nowrap;
+}
+.pptxv-btn-label { font-size: 12px; }
+/* Home > Arrange: group / ungroup / outline width. The spinner reuses the
+   inspector's field styling but is narrower, since the ribbon row has no
+   caption beside it. */
+.pptxv-arrange-extras { display: inline-flex; align-items: center; gap: 2px; }
+.pptxv-arrange-extras .pptxv-arrange-stroke { width: 52px; text-align: center; }
+
+/* ── Transitions > Advance Slide ────────────────────────────────────────
+   The group shipped with no rules at all, so its caption and both rows ran
+   together as inline text ("On Mouse ClickAfter:00:00.00") and the duration
+   box stretched to whatever width the row left it. React lays it out as a
+   caption over two checkbox rows, with a 64px centred time box. */
+.pptxv-transition-advance {
+	display: inline-flex;
+	flex: none;
+	flex-direction: column;
+	gap: 3px;
+	font-size: 12px;
+	color: var(--pptx-muted-foreground);
+}
+.pptxv-transition-advance-row {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	white-space: nowrap;
+	cursor: pointer;
+}
+.pptxv-transition-advance-seconds {
+	width: 64px;
+	padding: 1px 4px;
+	border: 1px solid var(--pptx-border);
+	border-radius: var(--pptx-radius);
+	background: var(--pptx-muted);
+	color: var(--pptx-foreground);
+	font: inherit;
+	font-size: 11px;
+	text-align: center;
+}
+.pptxv-transition-advance-seconds:focus-visible { outline: 2px solid var(--pptx-ring); outline-offset: -1px; }
+.pptxv-transition-advance-seconds:disabled { opacity: 0.5; }
+
+/* ── Home > Slides split button (New Slide + layout caret) ──────────────*/
+.pptxv-slides-split { position: relative; display: inline-flex; align-items: stretch; }
+.pptxv-slides-split .pptxv-btn-pill { border-top-right-radius: 0; border-bottom-right-radius: 0; }
+.pptxv-slides-caret {
+	display: inline-flex;
+	align-items: center;
+	padding: 0 3px;
+	border: none;
+	border-left: 1px solid color-mix(in srgb, var(--pptx-border) 60%, transparent);
+	border-radius: 0 var(--pptx-radius) var(--pptx-radius) 0;
+	background: var(--pptx-muted);
+	color: var(--pptx-foreground);
+	cursor: pointer;
+}
+.pptxv-slides-caret:hover { background: var(--pptx-accent); color: var(--pptx-accent-foreground); }
+.pptxv-slides-caret[hidden] { display: none; }
+.pptxv-slides-caret svg { width: 12px; height: 12px; }
+.pptxv-slides-menu-host { position: relative; display: inline-flex; }
+/* Layout menus anchor to the left of their host (unlike the right-aligned
+   primary-row menus, which the shared .pptxv-primary-menu rule right-aligns). */
+.pptxv-layout-menu {
+	right: auto;
+	left: 0;
+	display: grid;
+	grid-template-columns: repeat(4, minmax(0, 1fr));
+	gap: 8px;
+	width: 620px;
+	max-height: 520px;
+	overflow-y: auto;
+	padding: 12px;
+}
+.pptxv-layout-menu[hidden] { display: none; }
+.pptxv-layout-tile {
+	display: flex;
+	min-width: 0;
+	flex-direction: column;
+	align-items: center;
+	gap: 4px;
+	border: 2px solid transparent;
+	border-radius: var(--pptx-radius, 6px);
+	background: transparent;
+	color: inherit;
+	padding: 4px;
+	font: inherit;
+	font-size: 11px;
+	cursor: pointer;
+}
+.pptxv-layout-tile:hover { background: var(--pptx-accent); }
+.pptxv-layout-tile-current {
+	border-color: var(--pptx-primary, #2563eb);
+	background: color-mix(in srgb, var(--pptx-primary, #2563eb) 12%, transparent);
+}
+.pptxv-layout-tile-thumb {
+	position: relative;
+	flex: none;
+	overflow: hidden;
+	border: 1px solid var(--pptx-border);
+	border-radius: 2px;
+}
+/* The artwork is drawn at full slide size and the whole surface is scaled, so
+   element positions need no conversion. */
+.pptxv-layout-tile-surface { position: absolute; left: 0; top: 0; transform-origin: top left; }
+.pptxv-layout-tile-frame {
+	position: absolute;
+	border-style: dashed;
+	border-color: color-mix(in srgb, var(--pptx-muted-foreground) 70%, transparent);
+	background: color-mix(in srgb, var(--pptx-background) 20%, transparent);
+}
+.pptxv-layout-tile-name {
+	width: 100%;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	text-align: center;
+}
+
+/* ── Select + commit picker (Insert > Shape / Chart) ──────────────────── */
+.pptxv-select-button { display: inline-flex; align-items: center; gap: 0; }
+.pptxv-select-button-select {
+	max-width: 132px;
+	padding: 5px 4px 5px 6px;
+	border: 1px solid var(--pptx-border);
+	border-right: none;
+	border-radius: var(--pptx-radius) 0 0 var(--pptx-radius);
+	background: var(--pptx-muted);
+	color: var(--pptx-foreground);
+	font-size: 11px;
+}
+.pptxv-select-button-commit { border-radius: 0 var(--pptx-radius) var(--pptx-radius) 0; }
+
+/* ── Dropdown popover (font/size/spacing/case/line-spacing) ─────────────*/
+.pptxv-dropdown { position: relative; display: inline-flex; }
+.pptxv-dropdown-trigger {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	height: 28px;
+	padding: 0 6px;
+	border: 1px solid var(--pptx-border);
+	border-radius: var(--pptx-radius);
+	background: var(--pptx-background);
+	color: inherit;
+	font: inherit;
+	font-size: 11px;
+	cursor: pointer;
+}
+.pptxv-dropdown-trigger:hover:not(:disabled) { background: var(--pptx-accent); }
+.pptxv-dropdown-trigger:disabled { opacity: 0.4; cursor: default; }
+.pptxv-dropdown-trigger.is-active { background: var(--pptx-accent); }
+.pptxv-dropdown-trigger svg { width: 12px; height: 12px; flex: none; }
+.pptxv-dropdown-text { max-width: 96px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pptxv-font-family-dd .pptxv-dropdown-text { max-width: 120px; }
+.pptxv-font-size-dd .pptxv-dropdown-trigger { min-width: 44px; justify-content: space-between; }
+.pptxv-dropdown-menu {
+	/* Positioned by attachAnchoredPopup (position: fixed + inline top/left),
+	   which escapes the ribbon row's overflow-x clip (issue #183). */
+	z-index: 30;
+	min-width: 140px;
+	max-height: 240px;
+	overflow-y: auto;
+	padding: 4px;
+	border: 1px solid var(--pptx-border);
+	border-radius: var(--pptx-radius);
+	background: var(--pptx-card);
+	color: var(--pptx-card-foreground);
+	box-shadow: 0 6px 20px rgb(0 0 0 / 0.25);
+}
+.pptxv-dropdown-menu[hidden] { display: none; }
+/* Non-selectable heading starting a dropdown group (the font list's theme /
+   embedded / added-this-session / all sections). */
+.pptxv-dropdown-group {
+	padding: 6px 10px 2px;
+	color: var(--pptx-muted-foreground);
+	font-size: 10px;
+	font-weight: 600;
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+}
+.pptxv-dropdown-item-hint {
+	margin-left: auto;
+	padding-left: 8px;
+	color: var(--pptx-muted-foreground);
+	font-size: 10px;
+}
+.pptxv-dropdown-item {
+	display: block;
+	width: 100%;
+	padding: 6px 8px;
+	border: none;
+	border-radius: 4px;
+	background: transparent;
+	color: inherit;
+	font: inherit;
+	text-align: left;
+	cursor: pointer;
+}
+.pptxv-dropdown-item:hover { background: var(--pptx-accent); color: var(--pptx-accent-foreground); }
+.pptxv-dropdown-item.is-selected { font-weight: 600; color: var(--pptx-primary); }
+
+/* ── Swatch colour picker ────────────────────────────────────────────── */
+.pptxv-swatch-picker { position: relative; display: inline-flex; }
+.pptxv-swatch-trigger { flex-direction: column; height: 28px; padding: 2px 6px; gap: 0; }
+.pptxv-swatch-swab { display: block; width: 16px; height: 3px; border-radius: 1px; margin-top: 1px; }
+.pptxv-swatch-menu {
+	/* Positioned by attachAnchoredPopup (position: fixed + inline top/left),
+	   which escapes the ribbon row's overflow-x clip (issue #183). */
+	z-index: 30;
+	padding: 8px;
+	border: 1px solid var(--pptx-border);
+	border-radius: var(--pptx-radius);
+	background: var(--pptx-card);
+	color: var(--pptx-card-foreground);
+	box-shadow: 0 6px 20px rgb(0 0 0 / 0.25);
+}
+.pptxv-swatch-menu[hidden] { display: none; }
+.pptxv-swatch-grid { display: grid; grid-template-columns: repeat(5, 20px); gap: 4px; margin-bottom: 6px; }
+.pptxv-swatch {
+	width: 20px;
+	height: 20px;
+	padding: 0;
+	border: 1px solid var(--pptx-border);
+	border-radius: 50%;
+	cursor: pointer;
+}
+.pptxv-swatch:hover { transform: scale(1.15); }
+.pptxv-swatch.is-selected { outline: 2px solid var(--pptx-ring); outline-offset: 1px; }
+.pptxv-swatch-custom {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 6px;
+	font-size: 11px;
+	color: var(--pptx-muted-foreground);
+	cursor: pointer;
+}
+.pptxv-swatch-custom-input {
+	width: 20px;
+	height: 20px;
+	padding: 0;
+	border: 1px solid var(--pptx-border);
+	border-radius: 4px;
+	background: none;
+	cursor: pointer;
+}
+
+/* ── Find & Replace docked panel ─────────────────────────────────────── */
+.pptxv-findreplace {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	padding: 6px 8px;
+	border-bottom: 1px solid var(--pptx-border);
+	background: var(--pptx-muted);
+}
+.pptxv-findreplace[hidden] { display: none; }
+.pptxv-findreplace-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.pptxv-findreplace-input {
+	height: 28px;
+	min-width: 140px;
+	padding: 0 8px;
+	border: 1px solid var(--pptx-border);
+	border-radius: var(--pptx-radius);
+	background: var(--pptx-background);
+	color: var(--pptx-foreground);
+	font: inherit;
+	font-size: 12px;
+}
+.pptxv-findreplace-input:focus-visible { outline: 2px solid var(--pptx-ring); outline-offset: -1px; }
+.pptxv-findreplace-checkbox {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	font-size: 11px;
+	color: var(--pptx-muted-foreground);
+	cursor: pointer;
+}
+.pptxv-findreplace-status { font-size: 11px; color: var(--pptx-muted-foreground); }
+
+/* PowerPoint-style File backstage */
+.pptxv-backstage{position:fixed;inset:0;z-index:200;display:flex!important;padding:0!important;background:var(--pptx-background,#fafafa);color:var(--pptx-foreground,#242424);font-family:Aptos,"Segoe UI",sans-serif}.pptxv-backstage>aside{width:148px;flex:none;display:flex;flex-direction:column;background:var(--pptx-secondary,#f5eee9);border-right:1px solid var(--pptx-border,#d7d7d7)}.pptxv-bs-back{height:48px;border:0;border-bottom:1px solid var(--pptx-border,#ddd);background:none;color:inherit;font-size:22px}.pptxv-bs-back:hover,.pptxv-backstage nav button:hover,.pptxv-bs-recent>button:hover{background:var(--pptx-accent,#eadfd8)}.pptxv-backstage nav{display:flex;min-height:0;flex:1;flex-direction:column;padding:8px 0}.pptxv-backstage nav i{flex:1}.pptxv-backstage nav button{min-height:40px;padding:0 16px;border:0;border-left:2px solid transparent;background:none;color:inherit;text-align:left;font:12px inherit;white-space:pre}.pptxv-backstage nav button.active{border-left-color:var(--pptx-primary,#c43e1c);background:var(--pptx-card,#fff);color:var(--pptx-primary,#c43e1c)}.pptxv-backstage main{flex:1;min-width:0;overflow:auto;padding:20px clamp(32px,4vw,72px)}.pptxv-backstage h1{margin:0;font-size:24px;font-weight:600}.pptxv-backstage h2{margin:28px 0 18px;font-size:17px}.pptxv-bs-templates{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:24px}.pptxv-bs-templates button{border:0;background:none;color:inherit;text-align:left}.pptxv-bs-templates button>b{display:block;aspect-ratio:16/9;border:1px solid var(--pptx-border,#ccc);box-shadow:0 1px 2px #0002;transition:.15s}.pptxv-bs-templates button:hover>b{transform:translateY(-2px);border-color:var(--pptx-primary,#c43e1c);box-shadow:0 7px 18px #0002}.pptxv-bs-templates strong,.pptxv-bs-templates small{display:block;margin-top:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:12px}.pptxv-bs-templates small{margin-top:2px;color:var(--pptx-muted-foreground,#777);font-size:10px}.pptxv-bs-search{display:block;width:min(540px,100%);height:40px;margin-top:32px;padding:0 14px;border:1px solid var(--pptx-input,#888);background:var(--pptx-card,#fff);color:var(--pptx-card-foreground,#242424)}.pptxv-bs-search:focus{border-color:var(--pptx-ring,#c43e1c);outline:none}.pptxv-bs-primary{margin-top:16px;padding:10px 20px;border:0;background:var(--pptx-primary,#c43e1c);color:var(--pptx-primary-foreground,#fff);font-weight:600}.pptxv-bs-recent{border-top:1px solid var(--pptx-border,#ddd)}.pptxv-bs-recent header,.pptxv-bs-recent>button{display:grid;grid-template-columns:1fr 120px 90px;align-items:center;padding:10px 12px}.pptxv-bs-recent header{font-size:11px;font-weight:600;color:var(--pptx-muted-foreground,#666)}.pptxv-bs-recent>button{width:100%;border:0;border-top:1px solid var(--pptx-border,#e5e5e5);background:none;color:inherit;text-align:left;font-size:11px}.pptxv-bs-recent .name{display:flex;min-width:0;align-items:center;gap:12px}.pptxv-bs-recent .name>b{display:grid;width:32px;height:32px;place-items:center;background:var(--pptx-primary,#d24726);color:var(--pptx-primary-foreground,#fff)}.pptxv-bs-recent .name strong,.pptxv-bs-recent .name small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;font-weight:400}.pptxv-bs-recent .name small,.pptxv-bs-recent p{color:var(--pptx-muted-foreground,#666);font-size:11px}.pptxv-bs-recent p{text-align:center}.pptxv-bs-actions{display:grid;max-width:900px;grid-template-columns:1fr 1fr;gap:20px;margin-top:32px}.pptxv-bs-actions button{display:flex;min-height:112px;gap:16px;padding:20px;border:1px solid var(--pptx-border,#ddd);background:var(--pptx-card,#fff);color:var(--pptx-card-foreground,#242424);text-align:left}.pptxv-bs-actions button:hover{border-color:var(--pptx-primary,#c43e1c);box-shadow:0 5px 15px #0002}.pptxv-bs-actions button>b{display:grid;width:40px;height:40px;flex:none;place-items:center;background:var(--pptx-accent,#fbe9e3);color:var(--pptx-primary,#c43e1c)}.pptxv-bs-actions strong,.pptxv-bs-actions small{display:block;font-size:15px}.pptxv-bs-actions small{margin-top:7px;color:var(--pptx-muted-foreground,#666);font-size:12px;line-height:1.5}.pptxv-bs-card{max-width:760px;margin-top:32px;padding:28px;border:1px solid var(--pptx-border,#ddd);background:var(--pptx-card,#fff);color:var(--pptx-card-foreground,#242424)}.pptxv-bs-card>b{display:grid;width:56px;height:56px;place-items:center;border-radius:50%;background:var(--pptx-primary,#c43e1c);color:var(--pptx-primary-foreground,#fff);font-size:20px}.pptxv-bs-card p,.pptxv-backstage footer{color:var(--pptx-muted-foreground,#666)}.pptxv-bs-card p{line-height:1.6}.pptxv-backstage footer{margin-top:48px;font-size:11px}@media(max-width:700px){.pptxv-backstage>aside{width:112px}.pptxv-bs-actions{grid-template-columns:1fr}.pptxv-bs-recent header,.pptxv-bs-recent>button{grid-template-columns:1fr 90px}.pptxv-bs-recent header span:last-child,.pptxv-bs-recent>button>span:last-child{display:none}}
+.pptxv-backstage nav button{display:flex;align-items:center;gap:12px;white-space:normal}.pptxv-backstage nav button>span:first-child{display:grid;width:17px;flex:none;place-items:center}
+/* Mobile: stack the backstage and turn the vertical rail into a horizontal,
+   scrollable tab bar with a bottom indicator, and compact the content pane.
+   Same breakpoint as the rest of the mobile chrome (mobile-sheet-css.ts). */
+@media (max-width: 767px), (max-width: 1023px) and (max-height: 520px) {
+	.pptxv-backstage { flex-direction: column; }
+	.pptxv-backstage > aside { width: 100%; flex-direction: row; align-items: center; overflow-x: auto; border-right: 0; border-bottom: 1px solid var(--pptx-border, #d7d7d7); }
+	.pptxv-bs-back { min-width: 48px; flex: none; height: 48px; border-bottom: 0; border-right: 1px solid var(--pptx-border, #ddd); }
+	.pptxv-backstage nav { flex-direction: row; align-items: center; flex-wrap: nowrap; padding: 0; }
+	.pptxv-backstage nav i { display: none; }
+	.pptxv-backstage nav button { flex: none; white-space: nowrap; border-left: 0; border-bottom: 2px solid transparent; padding: 0 12px; }
+	.pptxv-backstage nav button.active { border-left-color: transparent; border-bottom-color: var(--pptx-primary, #c43e1c); }
+	.pptxv-backstage main { padding: 16px; }
+}
+
+
+/* ── Primary-row quick actions ──────────────────────────────────────────── */
+.pptxv-primary-sep { width: 1px; align-self: stretch; margin: 0 4px; background: color-mix(in srgb, var(--pptx-border) 40%, transparent); }
+/* React-style "Present" split button + its options dropdown. */
+.pptxv-present-split { position: relative; display: inline-flex; align-items: stretch; border-left: 1px solid var(--pptx-border); }
+.pptxv-present-main {
+	padding: 2px 8px;
+	border: none;
+	background: transparent;
+	color: var(--pptx-foreground);
+	font: inherit;
+	font-size: 12px;
+	cursor: pointer;
+}
+.pptxv-present-main:hover { background: var(--pptx-accent); }
+.pptxv-present-caret {
+	display: inline-flex;
+	align-items: center;
+	padding: 0 4px;
+	border: none;
+	border-left: 1px solid var(--pptx-border);
+	background: transparent;
+	color: var(--pptx-foreground);
+	cursor: pointer;
+}
+.pptxv-present-caret:hover, .pptxv-present-caret.is-active { background: var(--pptx-accent); }
+.pptxv-present-caret svg { width: 12px; height: 12px; }
+/* Right-aligned popover menus (Present options + "..." overflow). */
+.pptxv-primary-menu {
+	position: absolute;
+	top: calc(100% + 4px);
+	right: 0;
+	z-index: 40;
+	min-width: 190px;
+	max-height: 320px;
+	overflow-y: auto;
+	padding: 4px;
+	border: 1px solid var(--pptx-border);
+	border-radius: var(--pptx-radius);
+	background: var(--pptx-card);
+	color: var(--pptx-card-foreground);
+	box-shadow: 0 6px 20px rgb(0 0 0 / 0.25);
+}
+.pptxv-primary-menu[hidden] { display: none; }
+.pptxv-primary-menu-item {
+	display: block;
+	width: 100%;
+	padding: 6px 8px;
+	border: none;
+	border-radius: 4px;
+	background: transparent;
+	color: inherit;
+	font: inherit;
+	font-size: 12px;
+	text-align: left;
+	white-space: nowrap;
+	cursor: pointer;
+}
+.pptxv-primary-menu-item:hover { background: var(--pptx-accent); color: var(--pptx-accent-foreground); }
+.pptxv-primary-menu-sep { margin: 4px 0; border-top: 1px solid color-mix(in srgb, var(--pptx-border) 60%, transparent); }
+.pptxv-primary-menu-host { position: relative; display: inline-flex; }
+/* Custom-shows quick action ("+ Show"). */
+.pptxv-show-btn {
+	padding: 2px 8px;
+	border: none;
+	border-radius: var(--pptx-radius);
+	background: var(--pptx-muted);
+	color: var(--pptx-foreground);
+	font: inherit;
+	font-size: 11px;
+	white-space: nowrap;
+	cursor: pointer;
+}
+.pptxv-show-btn:hover { background: var(--pptx-accent); }
+/* ── Tab-row right-side actions ── */
+/* Right side of the tab row: Record + Share, matching React's TabRowActions. */
+.pptxv-tabrow-spacer { flex: 1; }
+.pptxv-tabrow-actions { display: inline-flex; align-items: center; gap: 4px; padding-right: 4px; }
+.pptxv-tabrow-record {
+	display: inline-flex;
+	align-items: center;
+	gap: 5px;
+	padding: 3px 9px;
+	border: none;
+	border-radius: 3px;
+	background: transparent;
+	color: var(--pptx-muted-foreground);
+	font: inherit;
+	font-size: 11px;
+	font-weight: 500;
+	white-space: nowrap;
+	cursor: pointer;
+}
+.pptxv-tabrow-record:hover { background: var(--pptx-accent); color: var(--pptx-foreground); }
+.pptxv-tabrow-record-dot { width: 8px; height: 8px; border-radius: 50%; background: #ef4444; }
+.pptxv-tabrow-share, .pptxv-tabrow-share.pptxv-btn {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	width: auto;
+	height: auto;
+	padding: 3px 10px;
+	border: none;
+	border-radius: 3px;
+	background: var(--pptx-primary);
+	color: var(--pptx-primary-foreground, #fff);
+	font: inherit;
+	font-size: 11px;
+	font-weight: 500;
+	white-space: nowrap;
+	cursor: pointer;
+}
+.pptxv-tabrow-share:hover, .pptxv-tabrow-share.pptxv-btn:hover:not(:disabled) {
+	background: color-mix(in srgb, var(--pptx-primary) 90%, #000);
+	color: var(--pptx-primary-foreground, #fff);
+}
+.pptxv-tabrow-share svg { width: 12px; height: 12px; }
+
+
+.pptxv-props-overlay { position:fixed; inset:0; z-index:210; display:grid; place-items:center; background:#0009; }
+.pptxv-props-scrim { position:absolute; inset:0; width:100%; height:100%; border:0; background:transparent; }
+.pptxv-props-dialog { position:relative; width:min(680px,calc(100vw - 32px)); max-height:calc(100vh - 40px); overflow:auto; border:1px solid var(--pptx-border); border-radius:10px; background:var(--pptx-card); color:var(--pptx-card-foreground); box-shadow:0 24px 80px #0008; }
+.pptxv-props-dialog header,.pptxv-props-dialog footer { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:12px 16px; border-bottom:1px solid var(--pptx-border); }
+.pptxv-props-dialog h2 { margin:0; font-size:16px; }
+.pptxv-props-dialog button,.pptxv-props-dialog input,.pptxv-props-dialog select { border:1px solid var(--pptx-border); border-radius:5px; padding:6px 8px; background:var(--pptx-muted); color:inherit; }
+.pptxv-props-tabs { display:flex; gap:4px; padding:8px 16px 0; }
+.pptxv-props-tabs .is-active,.pptxv-props-dialog .is-primary { background:var(--pptx-primary); color:#fff; }
+.pptxv-props-body { min-height:310px; padding:16px; }
+.pptxv-props-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+.pptxv-props-grid label { display:grid; gap:4px; font-size:11px; color:var(--pptx-muted-foreground); }
+.pptxv-props-grid input { color:var(--pptx-foreground); }
+.pptxv-props-stats { display:grid; grid-template-columns:1fr auto; gap:8px 24px; margin:0; }
+.pptxv-props-stats dt { color:var(--pptx-muted-foreground); }
+.pptxv-props-stats dd { margin:0; }
+.pptxv-props-custom { display:grid; gap:8px; }
+.pptxv-props-custom-row { display:grid; grid-template-columns:1fr 1fr 100px 34px; gap:6px; }
+.pptxv-props-dialog footer { justify-content:flex-end; border-top:1px solid var(--pptx-border); border-bottom:0; }
+@media (max-width:600px) { .pptxv-props-grid,.pptxv-props-custom-row { grid-template-columns:1fr; } }
+
+
+.pptxv-info-overlay{position:fixed;inset:0;z-index:220;display:grid;place-items:center;background:#0009}.pptxv-info-scrim{position:absolute;inset:0;width:100%;height:100%;border:0;background:transparent}.pptxv-info-dialog{position:relative;width:min(460px,calc(100vw - 32px));max-height:80vh;overflow:auto;border:1px solid var(--pptx-border);border-radius:12px;background:var(--pptx-card);color:var(--pptx-card-foreground);box-shadow:0 24px 80px #0008}.pptxv-info-dialog header,.pptxv-info-dialog footer{display:flex;align-items:center;gap:8px;padding:14px 18px;border-bottom:1px solid var(--pptx-border)}.pptxv-info-dialog header{justify-content:space-between}.pptxv-info-dialog h2,.pptxv-info-dialog h3,.pptxv-info-dialog p{margin:0}.pptxv-info-dialog h2{font-size:14px}.pptxv-info-dialog h3{font-size:12px}.pptxv-info-body{display:grid;gap:14px;padding:18px}.pptxv-info-dialog button,.pptxv-info-dialog input{border:1px solid var(--pptx-border);border-radius:6px;padding:7px 9px;background:var(--pptx-muted);color:inherit}.pptxv-info-dialog .is-primary{background:var(--pptx-primary);color:#fff}.pptxv-info-dialog .is-danger,.pptxv-info-error,.pptxv-info-row em.is-missing{color:#f87171}.pptxv-info-description,.pptxv-info-status,.pptxv-info-field span{color:var(--pptx-muted-foreground);font-size:12px}.pptxv-info-toggle{display:flex;align-items:center;gap:9px;font-size:12px}.pptxv-info-list{display:grid;gap:6px;max-height:280px;overflow:auto}.pptxv-info-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 10px;border-radius:8px;background:var(--pptx-muted);font-size:12px}.pptxv-info-badges{display:flex;align-items:center;gap:7px}.pptxv-info-badges b{padding:2px 5px;border-radius:4px;background:#16653455;color:#86efac;font-size:10px}.pptxv-info-badges em{color:#4ade80;font-style:normal}.pptxv-info-notice{display:flex;gap:10px;padding:12px;border:1px solid var(--pptx-border);border-radius:9px;background:var(--pptx-muted);font-size:12px}.pptxv-info-notice.is-signed,.pptxv-info-protected{border-color:#15803d66;background:#14532d33;color:#86efac}.pptxv-info-notice.is-warning{border-color:#b4530966;background:#78350f33;color:#fde68a}.pptxv-info-notice b{display:grid;width:20px;height:20px;flex:none;place-items:center;border:1px solid currentColor;border-radius:50%}.pptxv-info-protected{padding:9px;border:1px solid;border-radius:7px;font-size:12px}.pptxv-info-field{display:grid;gap:5px}.pptxv-info-strength{color:#eab308;letter-spacing:3px}.pptxv-info-error{min-height:14px;font-size:11px}.pptxv-info-spacer{flex:1}.pptxv-info-dialog footer{border-top:1px solid var(--pptx-border);border-bottom:0}
+.pptxv-version-history{position:absolute;z-index:210;inset:0 0 0 auto;display:flex;width:min(320px,100%);flex-direction:column;border-left:1px solid var(--pptx-border);background:var(--pptx-background);color:var(--pptx-foreground);box-shadow:-18px 0 48px #0005}.pptxv-version-history>header{display:flex;min-height:48px;align-items:center;gap:9px;padding:0 12px;border-bottom:1px solid var(--pptx-border)}.pptxv-version-history h2{flex:1;margin:0;font-size:14px}.pptxv-version-history button{border:0;border-radius:6px;padding:6px 9px;background:transparent;color:inherit}.pptxv-version-history button:hover{background:var(--pptx-accent)}.pptxv-version-content{flex:1;overflow:auto;color:var(--pptx-muted-foreground);font-size:12px}.pptxv-version-empty{padding:32px 14px;text-align:center}.pptxv-version-content article{display:grid;grid-template-columns:1fr auto;gap:4px 12px;padding:14px;border-bottom:1px solid var(--pptx-border)}.pptxv-version-content article strong{color:var(--pptx-foreground);font-weight:500}.pptxv-version-content article p{grid-column:1/-1;margin:0;font-size:10px}.pptxv-version-content article footer{grid-column:1/-1;display:flex;gap:6px;margin-top:8px}.pptxv-version-content .is-primary{background:color-mix(in srgb,var(--pptx-primary) 20%,transparent);color:var(--pptx-primary)}.pptxv-version-content .is-danger{color:#f87171}@media(max-width:600px){.pptxv-info-dialog{position:fixed;inset:auto 0 0;width:100%;max-height:88dvh;border-radius:16px 16px 0 0}.pptxv-version-history{position:fixed;top:auto;height:min(72dvh,560px);border-top:1px solid var(--pptx-border);border-left:0}}
+
+
+.pptxv-smartart-dialog-layer {
+	position: fixed;
+	inset: 0;
+	z-index: 1200;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+.pptxv-smartart-dialog-layer[hidden] { display: none; }
+.pptxv-smartart-dialog-backdrop {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	padding: 0;
+	border: 0;
+	background: rgb(0 0 0 / 0.5);
+	cursor: default;
+}
+.pptxv-smartart-dialog {
+	position: relative;
+	z-index: 1;
+	display: flex;
+	flex-direction: column;
+	width: min(600px, 90vw);
+	max-height: 80vh;
+	overflow: hidden;
+	border: 1px solid var(--pptx-border);
+	border-radius: 8px;
+	background: var(--pptx-background);
+	color: var(--pptx-foreground);
+	box-shadow: 0 20px 50px rgb(0 0 0 / 0.35);
+}
+.pptxv-smartart-dialog:focus { outline: none; }
+.pptxv-smartart-dialog-header,
+.pptxv-smartart-dialog-footer {
+	display: flex;
+	align-items: center;
+	padding: 12px 16px;
+}
+.pptxv-smartart-dialog-header {
+	justify-content: space-between;
+	border-bottom: 1px solid var(--pptx-border);
+}
+.pptxv-smartart-dialog-header h2 { margin: 0; font-size: 14px; font-weight: 500; }
+.pptxv-smartart-dialog-close {
+	display: grid;
+	width: 28px;
+	height: 28px;
+	padding: 0;
+	place-items: center;
+	border: 0;
+	border-radius: var(--pptx-radius);
+	background: transparent;
+	color: inherit;
+	font: inherit;
+	font-size: 20px;
+	line-height: 1;
+	cursor: pointer;
+}
+.pptxv-smartart-dialog-close:hover { background: var(--pptx-muted); }
+.pptxv-smartart-dialog-body { display: flex; flex: 1; min-height: 0; overflow: hidden; }
+.pptxv-smartart-categories {
+	flex: 0 0 160px;
+	padding: 8px 0;
+	border-right: 1px solid var(--pptx-border);
+}
+.pptxv-smartart-category {
+	display: block;
+	width: 100%;
+	padding: 6px 12px;
+	border: 0;
+	background: transparent;
+	color: inherit;
+	font: inherit;
+	font-size: 12px;
+	text-align: left;
+	cursor: pointer;
+}
+.pptxv-smartart-category:hover { background: var(--pptx-muted); }
+.pptxv-smartart-category.is-active { background: var(--pptx-primary); color: #fff; }
+.pptxv-smartart-gallery { flex: 1; min-width: 0; overflow-y: auto; padding: 12px; }
+.pptxv-smartart-options { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.pptxv-smartart-option {
+	display: flex;
+	min-width: 0;
+	padding: 8px;
+	align-items: center;
+	flex-direction: column;
+	gap: 4px;
+	border: 1px solid var(--pptx-border);
+	border-radius: var(--pptx-radius);
+	background: transparent;
+	color: inherit;
+	font: inherit;
+	cursor: pointer;
+}
+.pptxv-smartart-option:hover { background: color-mix(in srgb, var(--pptx-muted) 50%, transparent); }
+.pptxv-smartart-option.is-selected {
+	border-color: var(--pptx-primary);
+	background: color-mix(in srgb, var(--pptx-primary) 20%, transparent);
+}
+.pptxv-smartart-option-preview {
+	display: grid;
+	width: 64px;
+	height: 48px;
+	place-items: center;
+	border-radius: var(--pptx-radius);
+	background: var(--pptx-muted);
+	color: var(--pptx-primary);
+}
+.pptxv-smartart-option-preview svg { width: 30px; height: 30px; }
+.pptxv-smartart-option-label { font-size: 10px; line-height: 1.25; text-align: center; }
+.pptxv-smartart-dialog-footer {
+	justify-content: flex-end;
+	gap: 8px;
+	border-top: 1px solid var(--pptx-border);
+}
+.pptxv-smartart-dialog-cancel,
+.pptxv-smartart-dialog-insert {
+	padding: 6px 12px;
+	border: 0;
+	border-radius: var(--pptx-radius);
+	font: inherit;
+	font-size: 12px;
+	cursor: pointer;
+}
+.pptxv-smartart-dialog-cancel { background: var(--pptx-muted); color: inherit; }
+.pptxv-smartart-dialog-insert { background: var(--pptx-primary); color: #fff; }
+.pptxv-smartart-dialog-insert:disabled { background: var(--pptx-muted); color: var(--pptx-muted-foreground); cursor: not-allowed; }
+.pptxv-smartart-dialog button:focus-visible { outline: 2px solid var(--pptx-ring); outline-offset: 1px; }
+
+@media (max-width: 767px) {
+	.pptxv-smartart-dialog-layer { align-items: flex-end; }
+	.pptxv-smartart-dialog { width: 100%; max-height: 88dvh; border-radius: 16px 16px 0 0; }
+	.pptxv-smartart-categories { flex-basis: 120px; }
+	.pptxv-smartart-options { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+
+.pptxv-tpl-dialog-layer {
+	position: fixed;
+	inset: 0;
+	z-index: 1200;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+.pptxv-tpl-dialog-layer[hidden] { display: none; }
+.pptxv-tpl-dialog-backdrop {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	padding: 0;
+	border: 0;
+	background: rgb(0 0 0 / 0.5);
+	cursor: default;
+}
+.pptxv-tpl-dialog {
+	position: relative;
+	z-index: 1;
+	display: flex;
+	flex-direction: column;
+	width: min(640px, 92vw);
+	max-height: 80vh;
+	overflow: hidden;
+	border: 1px solid var(--pptx-border);
+	border-radius: 8px;
+	background: var(--pptx-background);
+	color: var(--pptx-foreground);
+	box-shadow: 0 20px 50px rgb(0 0 0 / 0.35);
+}
+.pptxv-tpl-dialog:focus { outline: none; }
+.pptxv-tpl-dialog-header,
+.pptxv-tpl-dialog-footer {
+	display: flex;
+	align-items: center;
+	padding: 12px 16px;
+}
+.pptxv-tpl-dialog-header {
+	justify-content: space-between;
+	border-bottom: 1px solid var(--pptx-border);
+}
+.pptxv-tpl-dialog-heading { display: flex; flex-direction: column; gap: 2px; }
+.pptxv-tpl-dialog-heading h2 { margin: 0; font-size: 14px; font-weight: 500; }
+.pptxv-tpl-dialog-heading p { margin: 0; font-size: 11px; color: var(--pptx-muted-foreground); }
+.pptxv-tpl-dialog-close {
+	display: grid;
+	width: 28px;
+	height: 28px;
+	padding: 0;
+	place-items: center;
+	border: 0;
+	border-radius: var(--pptx-radius);
+	background: transparent;
+	color: inherit;
+	font: inherit;
+	font-size: 20px;
+	line-height: 1;
+	cursor: pointer;
+}
+.pptxv-tpl-dialog-close:hover { background: var(--pptx-muted); }
+.pptxv-tpl-dialog-body { flex: 1; min-height: 0; overflow-y: auto; padding: 12px; }
+.pptxv-tpl-options { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.pptxv-tpl-option {
+	display: flex;
+	min-width: 0;
+	padding: 8px;
+	align-items: center;
+	flex-direction: column;
+	gap: 4px;
+	border: 1px solid var(--pptx-border);
+	border-radius: var(--pptx-radius);
+	background: transparent;
+	color: inherit;
+	font: inherit;
+	cursor: pointer;
+}
+.pptxv-tpl-option:hover { background: color-mix(in srgb, var(--pptx-muted) 50%, transparent); }
+.pptxv-tpl-option.is-selected {
+	border-color: var(--pptx-primary);
+	background: color-mix(in srgb, var(--pptx-primary) 20%, transparent);
+}
+.pptxv-tpl-preview { border-radius: var(--pptx-radius); }
+.pptxv-tpl-option-label { font-size: 10px; line-height: 1.25; text-align: center; }
+.pptxv-tpl-dialog-footer {
+	justify-content: flex-end;
+	gap: 8px;
+	border-top: 1px solid var(--pptx-border);
+}
+.pptxv-tpl-dialog-cancel,
+.pptxv-tpl-dialog-insert {
+	padding: 6px 12px;
+	border: 0;
+	border-radius: var(--pptx-radius);
+	font: inherit;
+	font-size: 12px;
+	cursor: pointer;
+}
+.pptxv-tpl-dialog-cancel { background: var(--pptx-muted); color: inherit; }
+.pptxv-tpl-dialog-insert { background: var(--pptx-primary); color: #fff; }
+.pptxv-tpl-dialog-insert:disabled { background: var(--pptx-muted); color: var(--pptx-muted-foreground); cursor: not-allowed; }
+.pptxv-tpl-dialog button:focus-visible { outline: 2px solid var(--pptx-ring); outline-offset: 1px; }
+
+@media (max-width: 767px) {
+	.pptxv-tpl-dialog-layer { align-items: flex-end; }
+	.pptxv-tpl-dialog { width: 100%; max-height: 88dvh; border-radius: 16px 16px 0 0; }
+	.pptxv-tpl-options { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+
+.pptxv-eqdlg-root[hidden] { display: none; }
+.pptxv-eqdlg-backdrop { position: fixed; inset: 0; z-index: 1200; border: 0; background: rgb(0 0 0 / .55); }
+.pptxv-eqdlg { position: fixed; z-index: 1201; top: 50%; left: 50%; display: flex; flex-direction: column; gap: 12px; width: min(600px, calc(100vw - 32px)); max-height: 85vh; overflow-y: auto; transform: translate(-50%, -50%); padding: 16px; border: 1px solid var(--pptx-border); border-radius: 10px; background: var(--pptx-background); color: var(--pptx-foreground); box-shadow: 0 24px 70px rgb(0 0 0 / .34); }
+.pptxv-eqdlg-header { display: flex; align-items: center; justify-content: space-between; }
+.pptxv-eqdlg-header h2 { margin: 0; font-size: 14px; }
+.pptxv-eqdlg-close { border: 0; background: transparent; color: var(--pptx-muted-foreground); font-size: 18px; cursor: pointer; border-radius: var(--pptx-radius); padding: 0 6px; }
+.pptxv-eqdlg-close:hover { background: var(--pptx-accent); color: var(--pptx-accent-foreground); }
+.pptxv-eqdlg-preview { display: flex; align-items: center; justify-content: center; min-height: 72px; padding: 12px; border: 1px solid var(--pptx-border); border-radius: var(--pptx-radius); background: var(--pptx-muted); font-size: 22px; font-family: 'Cambria Math', 'STIX Two Math', serif; }
+.pptxv-eqdlg-preview.is-empty { font-size: 12px; font-style: italic; font-family: inherit; color: var(--pptx-muted-foreground); }
+.pptxv-eqdlg-field { display: flex; flex-direction: column; gap: 5px; }
+.pptxv-eqdlg-label { font-size: 11px; font-weight: 500; color: var(--pptx-muted-foreground); }
+.pptxv-eqdlg-input { width: 100%; padding: 6px 8px; border: 1px solid var(--pptx-border); border-radius: var(--pptx-radius); background: var(--pptx-muted); color: inherit; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; resize: vertical; }
+.pptxv-eqdlg-input:disabled { opacity: 0.4; }
+.pptxv-eqdlg-hint { font-size: 10px; color: var(--pptx-muted-foreground); }
+.pptxv-eqdlg-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.pptxv-eqdlg-template { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 7px; border: 1px solid var(--pptx-border); border-radius: var(--pptx-radius); background: var(--pptx-muted); color: inherit; cursor: pointer; }
+.pptxv-eqdlg-template:hover { background: var(--pptx-accent); }
+.pptxv-eqdlg-template.is-active { border-color: var(--pptx-primary); background: color-mix(in srgb, var(--pptx-primary) 14%, transparent); }
+.pptxv-eqdlg-template-math { display: flex; align-items: center; justify-content: center; height: 28px; overflow: hidden; font-size: 13px; font-family: 'Cambria Math', 'STIX Two Math', serif; }
+.pptxv-eqdlg-template-label { width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: center; font-size: 9px; color: var(--pptx-muted-foreground); }
+.pptxv-eqdlg-footer { display: flex; justify-content: flex-end; gap: 7px; }
+.pptxv-eqdlg-footer button { padding: 7px 11px; border: 1px solid var(--pptx-border); border-radius: var(--pptx-radius); background: var(--pptx-muted); color: inherit; cursor: pointer; font: inherit; font-size: 12px; }
+.pptxv-eqdlg-footer button:hover:not(:disabled) { background: var(--pptx-accent); color: var(--pptx-accent-foreground); }
+.pptxv-eqdlg-footer button:disabled { opacity: 0.35; cursor: default; }
+.pptxv-eqdlg-footer button.is-primary { border-color: var(--pptx-primary); background: var(--pptx-primary); color: #fff; }
+.pptxv-eqdlg-footer button.is-primary:hover:not(:disabled) { background: var(--pptx-primary); color: #fff; filter: brightness(1.1); }
+@media (max-width: 767px) { .pptxv-eqdlg { top: auto; bottom: 0; width: 100%; max-height: 88dvh; transform: translateX(-50%); border-radius: 16px 16px 0 0; } }
+
+
+/* ── Modal dialog (Share / Broadcast) ────────────────────────────────── */
+.pptxv-modal-backdrop {
+	position: fixed;
+	inset: 0;
+	z-index: 1000;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background: rgb(0 0 0 / 0.5);
+}
+.pptxv-modal-backdrop[hidden] { display: none; }
+.pptxv-modal-panel {
+	display: flex;
+	flex-direction: column;
+	max-height: 88vh;
+	min-width: 320px;
+	max-width: min(92vw, 480px);
+	overflow: hidden;
+	border: 1px solid var(--pptx-border);
+	border-radius: var(--pptx-radius);
+	background: var(--pptx-card);
+	color: var(--pptx-card-foreground);
+	box-shadow: 0 12px 36px rgb(0 0 0 / 0.35);
+	overscroll-behavior: contain;
+}
+.pptxv-modal-panel:focus { outline: none; }
+.pptxv-modal-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+	padding: 12px 16px;
+	border-bottom: 1px solid var(--pptx-border);
+}
+.pptxv-modal-title { margin: 0; font-size: 14px; font-weight: 600; }
+.pptxv-modal-close {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 24px;
+	height: 24px;
+	border: none;
+	border-radius: 4px;
+	background: transparent;
+	color: var(--pptx-muted-foreground);
+	font-size: 18px;
+	line-height: 1;
+	cursor: pointer;
+}
+.pptxv-modal-close:hover { background: var(--pptx-muted); color: var(--pptx-foreground); }
+.pptxv-modal-body { overflow-y: auto; padding: 16px; }
+.pptxv-modal-footer {
+	display: flex;
+	justify-content: flex-end;
+	gap: 8px;
+	padding: 12px 16px;
+	border-top: 1px solid var(--pptx-border);
+}
+.pptxv-modal-section { display: flex; flex-direction: column; gap: 12px; }
+.pptxv-modal-section[hidden] { display: none; }
+.pptxv-share-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px; border-radius: 8px; background: var(--pptx-muted); }
+.pptxv-share-tabs button { border: 0; border-radius: 6px; background: transparent; color: var(--pptx-muted-foreground); padding: 6px 10px; font: 500 12px/1.2 inherit; cursor: pointer; }
+.pptxv-share-tabs button[aria-selected='true'] { background: var(--pptx-background); color: var(--pptx-foreground); box-shadow: 0 1px 2px rgb(0 0 0 / 0.18); }
+.pptxv-modal-desc { margin: 0; font-size: 13px; line-height: 1.5; color: var(--pptx-muted-foreground); }
+.pptxv-modal-hint { margin: 4px 0 0; font-size: 11px; color: var(--pptx-muted-foreground); }
+.pptxv-modal-hint[hidden] { display: none; }
+.pptxv-modal-field { display: flex; flex-direction: column; gap: 6px; }
+.pptxv-modal-label { font-size: 12px; font-weight: 500; }
+.pptxv-modal-input {
+	width: 100%;
+	padding: 6px 10px;
+	border: 1px solid var(--pptx-border);
+	border-radius: var(--pptx-radius);
+	background: var(--pptx-background);
+	color: var(--pptx-foreground);
+	font: inherit;
+	font-size: 13px;
+}
+.pptxv-modal-input:focus-visible { outline: 2px solid var(--pptx-ring); outline-offset: -1px; }
+.pptxv-modal-link-row { display: flex; align-items: center; gap: 8px; }
+.pptxv-modal-link-row .pptxv-modal-input { flex: 1; }
+.pptxv-modal-btn {
+	padding: 6px 12px;
+	border: 1px solid var(--pptx-border);
+	border-radius: var(--pptx-radius);
+	background: var(--pptx-muted);
+	color: var(--pptx-foreground);
+	font-size: 12px;
+	white-space: nowrap;
+	cursor: pointer;
+}
+.pptxv-modal-btn:hover:not(:disabled) { background: var(--pptx-accent); color: var(--pptx-accent-foreground); }
+.pptxv-modal-btn:disabled { opacity: 0.4; cursor: default; }
+.pptxv-modal-btn-primary {
+	border-color: var(--pptx-primary);
+	background: var(--pptx-primary);
+	color: var(--pptx-primary-foreground);
+}
+.pptxv-modal-danger-btn {
+	width: 100%;
+	padding: 8px 12px;
+	border: 1px solid rgb(239 68 68 / 0.3);
+	border-radius: var(--pptx-radius);
+	background: rgb(239 68 68 / 0.1);
+	color: #f87171;
+	font-size: 12px;
+	font-weight: 500;
+	cursor: pointer;
+}
+.pptxv-modal-danger-btn:hover { background: rgb(239 68 68 / 0.2); }
+
+/* ── Share dialog: active-session status/details/connected-users ───────── */
+.pptxv-share-status-row { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.pptxv-share-status-row .pptxv-collab-status-dot { flex-shrink: 0; }
+.pptxv-share-status-text { font-weight: 500; text-transform: capitalize; }
+.pptxv-share-count { margin-left: auto; display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--pptx-muted-foreground); }
+.pptxv-share-details { display: flex; align-items: center; gap: 12px; font-size: 11px; color: var(--pptx-muted-foreground); }
+.pptxv-share-details code { font-family: monospace; color: var(--pptx-foreground); }
+.pptxv-share-users-list {
+	display: flex;
+	flex-direction: column;
+	max-height: 140px;
+	overflow-y: auto;
+	border: 1px solid var(--pptx-border);
+	border-radius: var(--pptx-radius);
+	background: var(--pptx-background);
+}
+.pptxv-share-user { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-bottom: 1px solid var(--pptx-border); }
+.pptxv-share-user:last-child { border-bottom: none; }
+.pptxv-share-user-avatar {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 24px;
+	height: 24px;
+	border-radius: 50%;
+	overflow: hidden;
+	color: #ffffff;
+	font-size: 9px;
+	font-weight: 600;
+	flex-shrink: 0;
+}
+.pptxv-share-user-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.pptxv-share-user-name { font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pptxv-share-user-tag { margin-left: auto; font-size: 10px; color: var(--pptx-muted-foreground); white-space: nowrap; }
+
+/* ── Remote-cursor overlay ────────────────────────────────────────────── */
+.pptxv-collab-cursors {
+	position: absolute;
+	inset: 0;
+	pointer-events: none;
+	overflow: visible;
+	z-index: 20;
+}
+.pptxv-collab-cursor {
+	position: absolute;
+	top: 0;
+	left: 0;
+	pointer-events: none;
+	will-change: transform;
+	transition: transform 90ms linear;
+}
+.pptxv-collab-pointer { display: block; filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.35)); }
+.pptxv-collab-label {
+	position: absolute;
+	top: 16px;
+	left: 12px;
+	max-width: 150px;
+	padding: 2px 6px;
+	border-radius: 4px;
+	color: #ffffff;
+	font-size: 10px;
+	font-weight: 500;
+	line-height: 1.2;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	box-shadow: 0 1px 2px rgb(0 0 0 / 0.3);
+}
+
+/* ── Remote-selection overlay ─────────────────────────────────────────── */
+.pptxv-remote-selections {
+	position: absolute;
+	inset: 0;
+	pointer-events: none;
+	overflow: visible;
+	z-index: 19;
+}
+.pptxv-remote-selection {
+	position: absolute;
+	top: 0;
+	left: 0;
+	box-sizing: border-box;
+	border: 2px solid currentcolor;
+	border-radius: 2px;
+	pointer-events: none;
+	will-change: transform;
+	transition: transform 90ms linear;
+}
+.pptxv-remote-selection-label {
+	position: absolute;
+	top: -18px;
+	left: -2px;
+	max-width: 150px;
+	padding: 1px 5px;
+	border-radius: 3px;
+	color: #ffffff;
+	font-size: 9px;
+	font-weight: 500;
+	line-height: 1.3;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	pointer-events: none;
+	box-shadow: 0 1px 2px rgb(0 0 0 / 0.3);
+}
+
+/* ── Toolbar collaboration-status pill ───────────────────────────────── */
+.pptxv-collab-status {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	padding: 0 6px;
+	font-size: 11px;
+	white-space: nowrap;
+}
+.pptxv-collab-status[hidden] { display: none; }
+.pptxv-collab-status-dot {
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	background: var(--pptx-muted-foreground);
+}
+.pptxv-collab-status-dot.is-connected { background: #22c55e; }
+.pptxv-collab-status-dot.is-connecting { background: #eab308; }
+.pptxv-collab-status-dot.is-error { background: #ef4444; }
+.pptxv-collab-status-text { color: var(--pptx-muted-foreground); }
+.pptxv-collab-status-retry {
+	border: none;
+	background: transparent;
+	color: var(--pptx-primary);
+	font-size: 11px;
+	text-decoration: underline;
+	cursor: pointer;
+}
+.pptxv-collab-status-retry[hidden] { display: none; }
+
+/* ── Follow-mode bar ─────────────────────────────────────────────────── */
+/* Mounted on the position:relative .pptxv root (not the stage wrap): a
+   top-centre pill under the toolbar, matching React's fixed top-2 z-[1100]
+   placement, so it never floats over the slide on small viewports. */
+.pptxv-follow-bar {
+	position: absolute;
+	left: 50%;
+	top: 8px;
+	bottom: auto;
+	z-index: 1100;
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 10px;
+	max-width: calc(100% - 24px);
+	padding: 6px 10px;
+	border-radius: var(--pptx-radius);
+	background: color-mix(in srgb, var(--pptx-card) 95%, transparent);
+	color: var(--pptx-card-foreground);
+	font-size: 12px;
+	transform: translateX(-50%);
+	box-shadow: 0 4px 16px rgb(0 0 0 / 0.25);
+}
+.pptxv-follow-bar[hidden] { display: none; }
+.pptxv-follow-status {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	white-space: nowrap;
+	color: var(--pptx-muted-foreground);
+}
+.pptxv-follow-stop {
+	padding: 2px 8px;
+	border: 1px solid var(--pptx-border);
+	border-radius: var(--pptx-radius);
+	background: transparent;
+	color: var(--pptx-foreground);
+	font-size: 11px;
+	cursor: pointer;
+}
+.pptxv-follow-stop:hover { background: var(--pptx-muted); }
+.pptxv-follow-list {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+.pptxv-follow-peer {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	padding: 2px 8px 2px 2px;
+	border: 1px solid transparent;
+	border-radius: 9999px;
+	background: color-mix(in srgb, var(--pptx-muted) 60%, transparent);
+	color: var(--pptx-foreground);
+	cursor: pointer;
+}
+.pptxv-follow-peer:hover { background: var(--pptx-muted); }
+.pptxv-follow-peer.is-following { border-color: var(--pptx-primary); background: color-mix(in srgb, var(--pptx-primary) 30%, transparent); }
+.pptxv-follow-avatar {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 22px;
+	height: 22px;
+	border-radius: 50%;
+	color: #ffffff;
+	font-size: 10px;
+	font-weight: 600;
+	line-height: 1;
+}
+.pptxv-follow-name { max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Presentation mode hides all collaboration chrome. */
+.pptxv.pptxv-presenting .pptxv-collab-status,
+.pptxv.pptxv-presenting .pptxv-follow-bar { display: none; }
+
+
+.pptxv-presentation-touch-controls { display: none; }
+@media (any-pointer: coarse) {
+	.pptxv.pptxv-presenting .pptxv-presentation-touch-controls { display: contents; }
+	.pptxv-presentation-touch-controls .pptxv-btn { position: fixed; z-index: 90; display: flex; align-items: center; justify-content: center; width: 44px; height: 44px; padding: 0; border: 0; border-radius: 999px; background: rgb(0 0 0 / 55%); box-shadow: 0 4px 14px rgb(0 0 0 / 30%); color: #fff; font-size: 28px; touch-action: manipulation; }
+	.pptxv-presentation-touch-controls .pptxv-btn:active { background: rgb(0 0 0 / 75%); }
+	.pptxv-presentation-touch-controls .pptxv-btn:disabled { opacity: .3; }
+	.pptxv-presentation-touch-controls svg { width: 26px; height: 26px; }
+	.pptxv-presentation-touch-exit { top: calc(env(safe-area-inset-top, 0px) + 8px); right: calc(env(safe-area-inset-right, 0px) + 8px); }
+	.pptxv-presentation-touch-prev { top: 50%; left: calc(env(safe-area-inset-left, 0px) + 8px); transform: translateY(-50%); }
+	.pptxv-presentation-touch-next { top: 50%; right: calc(env(safe-area-inset-right, 0px) + 8px); transform: translateY(-50%); }
+	.pptxv-presentation-touch-counter { position: fixed; z-index: 90; bottom: calc(env(safe-area-inset-bottom, 0px) + 8px); left: 50%; padding: 4px 12px; border-radius: 999px; background: rgb(0 0 0 / 55%); color: #fff; font: 12px ui-monospace, monospace; font-variant-numeric: tabular-nums; pointer-events: none; transform: translateX(-50%); }
+}
+
+
+.pptxv-present-toolbar-wrap { display: none; }
+.pptxv.pptxv-presenting .pptxv-present-toolbar-wrap {
+	position: absolute;
+	bottom: var(--pptx-pt-bottom);
+	left: 50%;
+	z-index: var(--pptx-pt-z);
+	display: block;
+	transform: translateX(-50%);
+	transition: opacity var(--pptx-pt-fade) ease;
+}
+.pptxv-present-toolbar {
+	display: flex;
+	align-items: center;
+	gap: var(--pptx-pt-gap);
+	padding: var(--pptx-pt-pad-y) var(--pptx-pt-pad-x);
+	border: 1px solid var(--pptx-pt-border);
+	border-radius: var(--pptx-pt-radius);
+	background: var(--pptx-pt-bg);
+	color: #fff;
+	box-shadow: 0 25px 50px -12px rgb(0 0 0 / 45%);
+	backdrop-filter: blur(12px);
+}
+/* Two class levels so these beat the base .pptxv-btn box (28x28, theme accent
+   hover) without !important; the bar's buttons are 36x36 and always dark. */
+.pptxv-present-toolbar .pptxv-present-btn {
+	position: relative;
+	width: var(--pptx-pt-button);
+	height: var(--pptx-pt-button);
+	border-radius: var(--pptx-pt-control-radius);
+	background: transparent;
+	color: rgb(255 255 255 / 70%);
+	transition: color 150ms ease, background-color 150ms ease;
+}
+.pptxv-present-toolbar .pptxv-present-btn svg { width: var(--pptx-pt-icon); height: var(--pptx-pt-icon); }
+.pptxv-present-toolbar .pptxv-present-btn:hover:not(:disabled) { background: rgb(255 255 255 / 10%); color: #fff; }
+.pptxv-present-toolbar .pptxv-present-btn.is-active { background: rgb(255 255 255 / 25%); color: #fff; }
+.pptxv-present-toolbar .pptxv-present-btn:disabled { opacity: 1; background: transparent; color: rgb(255 255 255 / 20%); cursor: not-allowed; }
+.pptxv-present-toolbar .pptxv-present-danger:hover:not(:disabled) { color: #f87171; }
+.pptxv-present-toolbar .pptxv-present-caret {
+	width: var(--pptx-pt-caret);
+	margin-left: calc(-1 * var(--pptx-pt-caret-overlap));
+	border-radius: 0 var(--pptx-pt-control-radius) var(--pptx-pt-control-radius) 0;
+	color: rgb(255 255 255 / 50%);
+}
+.pptxv-present-toolbar .pptxv-present-caret svg { width: var(--pptx-pt-caret-icon); height: var(--pptx-pt-caret-icon); }
+.pptxv-present-group { position: relative; display: flex; align-items: center; }
+.pptxv-present-swatch-bar {
+	position: absolute;
+	bottom: 2px;
+	left: 50%;
+	width: var(--pptx-pt-swatch-bar-w);
+	height: var(--pptx-pt-swatch-bar-h);
+	border-radius: 999px;
+	transform: translateX(-50%);
+	pointer-events: none;
+}
+.pptxv-present-divider {
+	flex: none;
+	width: var(--pptx-pt-divider-w);
+	height: var(--pptx-pt-divider-h);
+	margin: 0 var(--pptx-pt-divider-mx);
+	background: var(--pptx-pt-divider-color);
+}
+.pptxv-present-counter {
+	min-width: var(--pptx-pt-counter-min);
+	padding: 0 6px;
+	color: rgb(255 255 255 / 80%);
+	font: var(--pptx-pt-font-size) / var(--pptx-pt-line-height) ui-monospace, monospace;
+	font-variant-numeric: tabular-nums;
+	text-align: center;
+	user-select: none;
+}
+.pptxv-present-timer {
+	display: flex;
+	align-items: center;
+	gap: var(--pptx-pt-timer-gap);
+	padding: 0 4px;
+	color: rgb(255 255 255 / 60%);
+	font: var(--pptx-pt-font-size) / var(--pptx-pt-line-height) ui-monospace, monospace;
+	font-variant-numeric: tabular-nums;
+	user-select: none;
+}
+.pptxv-present-timer svg { width: var(--pptx-pt-timer-icon); height: var(--pptx-pt-timer-icon); flex: none; }
+.pptxv-present-palette {
+	position: absolute;
+	/* Shrink-to-fit against the 64px tool+caret pair squeezes the four 36px
+	   columns into 50px and makes the swatches overlap, so the popover must size
+	   to its own content. */
+	width: max-content;
+	bottom: 100%;
+	left: 50%;
+	display: grid;
+	grid-template-columns: repeat(var(--pptx-pt-palette-cols), auto);
+	gap: var(--pptx-pt-palette-gap);
+	margin-bottom: 8px;
+	padding: var(--pptx-pt-palette-pad);
+	border: 1px solid rgb(255 255 255 / 20%);
+	border-radius: 8px;
+	background: #262626;
+	box-shadow: 0 20px 25px -5px rgb(0 0 0 / 40%);
+	transform: translateX(-50%);
+}
+.pptxv-present-palette[hidden] { display: none; }
+.pptxv-present-swatch {
+	width: var(--pptx-pt-swatch);
+	height: var(--pptx-pt-swatch);
+	padding: 0;
+	border: 2px solid rgb(255 255 255 / 20%);
+	border-radius: 50%;
+	cursor: pointer;
+	transition: transform 150ms ease;
+}
+.pptxv-present-swatch:hover { transform: scale(1.1); }
+.pptxv-present-swatch.is-selected { border-color: #fff; }
+
+
+/* The show toolbar stands down while the console is up: the console carries its
+   own navigation, annotation tools and End control, and the bar sits at a
+   higher stacking order, so leaving it up drew a second set of them on top. */
+.pptxv.pptxv-presenter-open .pptxv-present-toolbar-wrap { display: none; }
+.pptxv-presenter {
+	position: absolute;
+	inset: 0;
+	z-index: var(--pptx-pv-z);
+	display: flex;
+	flex-direction: column;
+	background: var(--pptx-card);
+	color: var(--pptx-foreground);
+	font-family: inherit;
+}
+.pptxv-presenter-strip {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--pptx-pv-strip-gap);
+	padding: var(--pptx-pv-strip-pad-y) var(--pptx-pv-strip-pad-x);
+	border-bottom: 1px solid var(--pptx-border);
+	background: var(--pptx-card);
+}
+.pptxv-presenter-strip-btn {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 6px;
+	min-width: var(--pptx-pv-control);
+	height: var(--pptx-pv-control);
+	padding: 0 8px;
+	border: 0;
+	border-radius: var(--pptx-pv-control-radius);
+	background: var(--pptx-secondary);
+	color: var(--pptx-foreground);
+	font-size: 12px;
+	cursor: pointer;
+	transition: background-color .15s ease;
+}
+.pptxv-presenter-strip-btn:hover { background: var(--pptx-accent); }
+.pptxv-presenter-strip-btn.is-active {
+	background: var(--pptx-primary);
+	color: var(--pptx-primary-foreground);
+}
+.pptxv-presenter-strip-icon { display: inline-flex; }
+.pptxv-presenter-strip-icon svg {
+	width: var(--pptx-pv-control-icon);
+	height: var(--pptx-pv-control-icon);
+}
+.pptxv-presenter-strip-icon:empty { display: none; }
+.pptxv-presenter-strip-divider {
+	width: var(--pptx-pv-divider-w);
+	height: var(--pptx-pv-divider-h);
+	margin: 0 var(--pptx-pv-divider-mx);
+	background: var(--pptx-border);
+}
+.pptxv-presenter-strip-spacer { flex: 1; }
+
+.pptxv-presenter-body { display: flex; flex: 1; min-height: 0; }
+.pptxv-presenter-main {
+	position: relative;
+	display: flex;
+	flex: var(--pptx-pv-main-flex);
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	min-width: 0;
+	padding: var(--pptx-pv-main-pad);
+	overflow: hidden;
+	background: #000;
+	cursor: pointer;
+}
+.pptxv-presenter-main-frame { transform-origin: 50% 50%; }
+.pptxv-presenter-badge {
+	margin-top: 12px;
+	color: rgb(255 255 255 / 50%);
+	font-family: ui-monospace, monospace;
+	font-size: 12px;
+	user-select: none;
+}
+
+.pptxv-presenter-rail {
+	display: flex;
+	flex: var(--pptx-pv-rail-flex);
+	flex-direction: column;
+	min-width: var(--pptx-pv-rail-min);
+	max-width: var(--pptx-pv-rail-max);
+	border-left: 1px solid var(--pptx-border);
+	background: var(--pptx-background);
+}
+.pptxv-presenter-rail-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 12px 16px;
+	border-bottom: 1px solid var(--pptx-border);
+}
+.pptxv-presenter-elapsed { text-align: right; }
+.pptxv-presenter-heading {
+	color: var(--pptx-muted-foreground);
+	font-size: 10px;
+	letter-spacing: .08em;
+	text-transform: uppercase;
+}
+.pptxv-presenter-readout {
+	font-family: ui-monospace, monospace;
+	font-size: 18px;
+	font-variant-numeric: tabular-nums;
+}
+.pptxv-presenter-elapsed .pptxv-presenter-readout { color: var(--pptx-primary); }
+.pptxv-presenter-rail-nav {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 8px 16px;
+	border-bottom: 1px solid var(--pptx-border);
+}
+.pptxv-presenter-nav-btn {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	padding: 6px 12px;
+	border: 0;
+	border-radius: 4px;
+	background: var(--pptx-secondary);
+	color: inherit;
+	font-size: 12px;
+	cursor: pointer;
+}
+.pptxv-presenter-nav-btn:disabled { opacity: .4; cursor: default; }
+.pptxv-presenter-nav-btn svg { width: 14px; height: 14px; }
+.pptxv-presenter-counter {
+	font-family: ui-monospace, monospace;
+	font-size: 14px;
+	font-variant-numeric: tabular-nums;
+}
+.pptxv-presenter-next { padding: 12px 16px; border-bottom: 1px solid var(--pptx-border); }
+.pptxv-presenter-next-body { margin-top: 8px; overflow: hidden; }
+.pptxv-presenter-notes {
+	display: flex;
+	flex: 1;
+	flex-direction: column;
+	min-height: 0;
+	padding: 12px 16px;
+}
+.pptxv-presenter-notes-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	margin-bottom: 8px;
+}
+.pptxv-presenter-notes-controls { display: flex; align-items: center; gap: 4px; }
+.pptxv-presenter-notes-btn {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 22px;
+	height: 22px;
+	border: 0;
+	border-radius: 4px;
+	background: transparent;
+	color: inherit;
+	cursor: pointer;
+}
+.pptxv-presenter-notes-btn:disabled { opacity: .4; cursor: default; }
+.pptxv-presenter-notes-btn svg { width: 14px; height: 14px; }
+.pptxv-presenter-notes-size {
+	min-width: 34px;
+	font-family: ui-monospace, monospace;
+	font-size: 10px;
+	text-align: center;
+}
+.pptxv-presenter-notes-body {
+	flex: 1;
+	min-height: 0;
+	padding: 8px 12px;
+	border: 1px solid var(--pptx-border);
+	border-radius: 4px;
+	background: var(--pptx-secondary);
+	line-height: 1.6;
+	overflow-y: auto;
+	white-space: pre-wrap;
+}
+.pptxv-presenter-empty { color: var(--pptx-muted-foreground); font-style: italic; }
+
+.pptxv-presenter-progress {
+	flex-shrink: 0;
+	height: var(--pptx-pv-progress-h);
+	background: var(--pptx-muted);
+}
+.pptxv-presenter-progress-fill {
+	height: 100%;
+	background: var(--pptx-primary);
+	transition: width 1s linear;
+}
+
+.pptxv-presenter-navigator {
+	position: absolute;
+	inset: 0;
+	z-index: var(--pptx-pv-nav-z);
+	padding: 24px;
+	overflow: auto;
+	background: var(--pptx-card);
+}
+.pptxv-presenter-navigator-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	margin-bottom: 16px;
+}
+.pptxv-presenter-navigator-close {
+	padding: 6px 12px;
+	border: 0;
+	border-radius: 4px;
+	background: var(--pptx-secondary);
+	color: inherit;
+	cursor: pointer;
+}
+.pptxv-presenter-navigator-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(var(--pptx-pv-nav-track-min), 1fr));
+	gap: var(--pptx-pv-nav-gap);
+}
+.pptxv-presenter-navigator-tile {
+	position: relative;
+	padding: 6px;
+	border: 1px solid var(--pptx-border);
+	border-radius: 6px;
+	background: var(--pptx-secondary);
+	color: inherit;
+	cursor: pointer;
+	overflow: hidden;
+}
+.pptxv-presenter-navigator-tile.is-current { border-color: var(--pptx-primary); border-width: 2px; }
+.pptxv-presenter-navigator-preview { overflow: hidden; pointer-events: none; }
+.pptxv-presenter-navigator-caption {
+	display: block;
+	margin-top: 6px;
+	font-family: ui-monospace, monospace;
+	font-size: 11px;
+}
+
+
+.pptxv-mobile-toolbar, .pptxv-mobile-actions { display: none; }
+@media (max-width: 767px), (max-width: 1023px) and (max-height: 520px) {
+	.pptxv-ribbon { display: none; }
+	.pptxv-mobile-toolbar { position: relative; z-index: 20; display: flex; flex: none; align-items: center; gap: 4px; min-height: 52px; padding: max(env(safe-area-inset-top), 0px) 8px 4px; border-bottom: 1px solid var(--pptx-border); background: color-mix(in srgb, var(--pptx-muted) 55%, var(--pptx-card)); }
+	.pptxv-mobile-toolbar-btn { display: inline-flex; align-items: center; justify-content: center; min-width: 44px; min-height: 44px; padding: 0; border: 0; border-radius: 6px; background: transparent; color: var(--pptx-foreground); touch-action: manipulation; }
+	.pptxv-mobile-toolbar-btn:hover:not(:disabled) { background: var(--pptx-accent); }
+	.pptxv-mobile-toolbar-btn:disabled { opacity: .4; }
+	.pptxv-mobile-toolbar-btn svg { width: 20px; height: 20px; }
+	.pptxv-mobile-toolbar-spacer { flex: 1; }
+	.pptxv-mobile-present { color: var(--pptx-primary); }
+	.pptxv-mobile-toolbar-collaboration { display: flex; }
+	.pptxv-mobile-toolbar-collaboration[hidden], .pptxv-mobile-toolbar-collaboration:empty { display: none; }
+	.pptxv-mobile-toolbar-ai { display: flex; }
+	.pptxv-mobile-toolbar-ai[hidden], .pptxv-mobile-toolbar-ai:empty { display: none; }
+	.pptxv-mobile-toolbar-ai .pptxv-ai-toggle.is-active { color: var(--pptx-primary); background: transparent; }
+	.pptxv-mobile-share { min-width: 44px; background: var(--pptx-primary); color: var(--pptx-primary-foreground); }
+	.pptxv-mobile-actions { display: contents; }
+	.pptxv-mobile-actions > nav { position: relative; z-index: 50; display: flex; flex: none; min-height: 64px; padding-bottom: env(safe-area-inset-bottom); border-top: 1px solid var(--pptx-border); background: var(--pptx-card); }
+	.pptxv-mobile-actions > nav button { position: relative; display: flex; flex: 1; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-width: 44px; border: 0; background: transparent; color: var(--pptx-muted-foreground); font-size: 10px; touch-action: manipulation; }
+	.pptxv-mobile-actions > nav button svg { width: 20px; height: 20px; }
+	.pptxv-mobile-actions > nav button[aria-pressed='true'] { color: var(--pptx-primary); }
+	.pptxv-mobile-sheet-host { position: absolute; z-index: 48; inset: 0 0 64px; display: flex; align-items: end; }
+	.pptxv-mobile-sheet-host[hidden] { display: none; }
+	.pptxv-mobile-sheet-backdrop { position: absolute; inset: 0; width: 100%; border: 0; background: rgb(0 0 0 / 40%); }
+	.pptxv-mobile-sheet { position: relative; display: flex; flex-direction: column; width: 100%; max-height: min(70dvh, 620px); border: 1px solid var(--pptx-border); border-bottom: 0; border-radius: 16px 16px 0 0; background: var(--pptx-background); box-shadow: 0 -12px 36px rgb(0 0 0 / 35%); transition: transform 150ms ease-out; }
+	.pptxv-mobile-sheet-header { display: grid; justify-items: center; gap: 5px; padding: 8px 16px 10px; border-bottom: 1px solid var(--pptx-border); cursor: grab; touch-action: none; }
+	.pptxv-mobile-sheet-handle { width: 40px; height: 4px; border-radius: 2px; background: var(--pptx-muted-foreground); opacity: .45; }
+	.pptxv-mobile-sheet-body { display: flex; flex-wrap: wrap; gap: 8px; overflow: auto; padding: 12px; overscroll-behavior: contain; }
+	.pptxv-mobile-sheet-body > button { min-height: 44px; padding: 8px 12px; border: 1px solid var(--pptx-border); border-radius: 8px; background: var(--pptx-muted); color: inherit; }
+	/* A vertical list of real thumbnails, the way React's mobile Slides sheet
+	   shows them; the five-column grid of title pills it replaced could not show
+	   the slides at all. */
+	.pptxv-mobile-slide-list { display: flex; flex-direction: column; gap: 8px; width: 100%; max-height: 46dvh; overflow-y: auto; }
+	.pptxv-mobile-comment { display: grid; gap: 6px; padding: 8px 0; border-bottom: 1px solid var(--pptx-border); }
+	.pptxv-mobile-comment textarea, .pptxv-mobile-comment-add textarea { box-sizing: border-box; width: 100%; min-height: 58px; padding: 8px; border: 1px solid var(--pptx-border); border-radius: var(--pptx-radius); background: var(--pptx-background); color: var(--pptx-foreground); font: inherit; }
+	.pptxv-mobile-comment-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+	.pptxv-mobile-comment-actions button, .pptxv-mobile-comment-add button { min-height: 36px; padding: 6px 10px; border: 1px solid var(--pptx-border); border-radius: var(--pptx-radius); background: var(--pptx-muted); color: var(--pptx-foreground); }
+	.pptxv-mobile-comment-add { display: grid; gap: 6px; padding-top: 10px; }
+	.pptxv-mobile-slide-list button { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 6px; border: 1px solid var(--pptx-border); border-radius: 8px; background: var(--pptx-muted); color: inherit; text-align: left; }
+	.pptxv-mobile-slide-list button.is-active { border-color: var(--pptx-primary); color: var(--pptx-primary); }
+	.pptxv-mobile-slide-num { min-width: 18px; color: var(--pptx-muted-foreground); font-size: 11px; text-align: right; }
+	.pptxv-mobile-slide-list button.is-active .pptxv-mobile-slide-num { color: var(--pptx-primary); }
+	/* The thumbnail is a scaled stage: it must clip and never stretch. */
+	.pptxv-mobile-slide-frame { display: block; flex: none; overflow: hidden; border: 1px solid var(--pptx-border); border-radius: 4px; background: #fff; }
+	.pptxv-mobile-slide-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+	.pptxv-mobile-sheet .pptxv-inspector { display: flex; width: 100%; max-height: 55dvh; border: 0; }
+	.pptxv.pptxv-presenting .pptxv-mobile-toolbar,
+	.pptxv.pptxv-presenting .pptxv-mobile-actions > nav,
+	.pptxv.pptxv-presenting .pptxv-mobile-sheet-host { display: none; }
+}
+
+
+.pptxv-master-sidebar {
+	display: flex;
+	flex: none;
+	flex-direction: column;
+	width: 224px;
+	min-height: 0;
+	border-right: 1px solid var(--pptx-border);
+	background: color-mix(in srgb, var(--pptx-card) 92%, transparent);
+}
+.pptxv-master-sidebar[hidden] { display: none; }
+.pptxv-master-header { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; }
+.pptxv-master-title { color: var(--pptx-muted-foreground); font-size: 10px; letter-spacing: 0.07em; text-transform: uppercase; }
+.pptxv-master-collapse { width: 24px; height: 24px; border: 0; border-radius: 4px; background: transparent; color: var(--pptx-muted-foreground); cursor: pointer; font-size: 20px; line-height: 1; }
+.pptxv-master-collapse:hover { background: var(--pptx-accent); color: var(--pptx-accent-foreground); }
+.pptxv-master-collapse:focus-visible, .pptxv-master-tab:focus-visible, .pptxv-master-count:focus-visible, .pptxv-master-thumb:focus-visible { outline: 2px solid var(--pptx-ring); outline-offset: -2px; }
+.pptxv-master-tabs { display: flex; padding: 0 4px; border-bottom: 1px solid var(--pptx-border); }
+.pptxv-master-tab { flex: 1; padding: 6px 2px; border: 0; border-bottom: 2px solid transparent; background: transparent; color: var(--pptx-muted-foreground); cursor: pointer; font: inherit; font-size: 10px; }
+.pptxv-master-tab.is-active { border-bottom-color: #f59e0b; color: #f59e0b; font-weight: 600; }
+.pptxv-master-body { display: flex; flex: 1; flex-direction: column; gap: 8px; min-height: 0; overflow-y: auto; padding: 6px; }
+/* "flex: none" is load-bearing here: the rail is a column flex container, so
+   every thumb is a flex item and shrinks by default. With a dozen layouts that
+   crushed each 72px preview frame down to 8px, which went unnoticed while the
+   frames were empty. (No backticks in this file: it is one template literal.) */
+.pptxv-master-thumb { display: flex; flex: none; flex-direction: column; gap: 4px; padding: 5px; border: 1px solid transparent; border-radius: 5px; background: transparent; color: var(--pptx-foreground); cursor: pointer; text-align: left; }
+.pptxv-master-thumb.is-layout { margin-left: 14px; }
+.pptxv-master-thumb:hover { background: var(--pptx-accent); }
+.pptxv-master-thumb.is-active { border-color: var(--pptx-primary); background: color-mix(in srgb, var(--pptx-primary) 10%, transparent); }
+.pptxv-master-thumb-name { overflow: hidden; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.pptxv-master-thumb-frame { position: relative; display: block; overflow: hidden; border: 1px solid var(--pptx-border); border-radius: 3px; background: #fff; }
+.pptxv-master-card { padding: 8px; border: 1px solid var(--pptx-border); border-radius: 6px; background: color-mix(in srgb, var(--pptx-muted) 55%, transparent); }
+.pptxv-master-card-label { margin-bottom: 6px; color: var(--pptx-muted-foreground); font-size: 10px; }
+.pptxv-master-background { width: 100%; height: 32px; border: 1px solid var(--pptx-border); border-radius: 4px; }
+.pptxv-master-placeholder { display: flex; align-items: center; gap: 7px; margin-top: 4px; padding: 5px 6px; border-radius: 4px; background: color-mix(in srgb, var(--pptx-background) 65%, transparent); font-size: 10px; }
+.pptxv-master-dot { width: 8px; height: 8px; flex: none; border-radius: 50%; background: rgb(34 197 94 / 0.65); }
+.pptxv-master-dot.is-handout { background: rgb(168 85 247 / 0.65); }
+.pptxv-master-empty { padding: 16px 8px; color: var(--pptx-muted-foreground); font-size: 11px; text-align: center; }
+.pptxv-master-counts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; }
+.pptxv-master-count { padding: 6px; border: 0; border-radius: 4px; background: var(--pptx-accent); color: var(--pptx-muted-foreground); cursor: pointer; font: inherit; font-size: 11px; }
+.pptxv-master-count.is-active { background: var(--pptx-primary); color: var(--pptx-primary-foreground); }
+.pptxv-master-page { position: relative; overflow: hidden; border: 1px solid #d1d5db; border-radius: 4px; background: #fff; box-shadow: 0 8px 24px rgb(0 0 0 / 0.18); }
+.pptxv-master-canvas-empty { display: grid; width: 100%; height: 100%; place-items: center; color: var(--pptx-muted-foreground); }
+.pptxv-notes-region { position: absolute; display: flex; overflow: hidden; align-items: center; justify-content: center; border: 1px dashed rgb(156 163 175 / 0.45); color: rgb(107 114 128 / 0.8); font-size: 10px; text-align: center; }
+.pptxv-notes-region.is-sldImg { border-color: rgb(59 130 246 / 0.55); background: rgb(59 130 246 / 0.05); color: rgb(59 130 246 / 0.75); }
+.pptxv-notes-region.is-body { border-color: rgb(34 197 94 / 0.55); background: rgb(34 197 94 / 0.05); color: rgb(34 197 94 / 0.75); }
+.pptxv-handout-slot { position: absolute; display: flex; overflow: hidden; align-items: center; justify-content: center; border: 1px dashed rgb(96 165 250 / 0.55); background: rgb(239 246 255 / 0.35); color: rgb(96 165 250 / 0.7); font-size: 10px; font-weight: 500; }
+.pptxv-handout-corner { position: absolute; padding: 1px 4px; border-color: rgb(209 213 219 / 0.5); border-style: dashed; color: rgb(107 114 128 / 0.55); font-size: 8px; }
+.pptxv-handout-corner.is-top-left { top: 0; left: 0; border-right-width: 1px; border-bottom-width: 1px; }
+.pptxv-handout-corner.is-top-right { top: 0; right: 0; border-bottom-width: 1px; border-left-width: 1px; }
+.pptxv-handout-corner.is-bottom-left { bottom: 0; left: 0; border-top-width: 1px; border-right-width: 1px; }
+.pptxv-handout-corner.is-bottom-right { right: 0; bottom: 0; border-top-width: 1px; border-left-width: 1px; }
+@media (max-width: 767px), (max-width: 1023px) and (max-height: 520px) { .pptxv-master-sidebar { display: none; } }
+.pptxv.pptxv-presenting .pptxv-master-sidebar { display: none; }
+
+
+/* Hidden slide in the sorter: the card is already dimmed by `.is-hidden`, so
+   this adds the two signals dimming cannot carry, because opacity is a
+   colour-only cue: the shared diagonal slash across the slide number, and the
+   state spelled out in words. */
+.pptxv-sorter-num { display: inline-block; padding: 0 3px; }
+.pptxv-sorter-card[data-pptx-slide-hidden] .pptxv-sorter-num { background-image: linear-gradient(to top right, transparent 47%, color-mix(in srgb, currentColor 60%, transparent) 47%, color-mix(in srgb, currentColor 60%, transparent) 53%, transparent 53%); }
+.pptxv-sorter-hidden { display: block; margin-top: 4px; font-size: 9px; text-transform: uppercase; letter-spacing: .05em; color: var(--pptx-muted-foreground); }
+.pptxv-parity-backdrop { position: fixed; inset: 0; z-index: 1200; border: 0; background: rgb(0 0 0 / .55); }
+.pptxv-parity-dialog { position: fixed; z-index: 1201; top: 50%; left: 50%; display: flex; flex-direction: column; width: min(440px, calc(100vw - 32px)); max-height: 88vh; transform: translate(-50%, -50%); overflow: hidden; border: 1px solid var(--pptx-border); border-radius: 10px; background: var(--pptx-background); color: var(--pptx-foreground); box-shadow: 0 24px 70px rgb(0 0 0 / .34); }
+.pptxv-parity-header, .pptxv-parity-footer { display: flex; align-items: center; padding: 12px 16px; border-color: var(--pptx-border); }
+.pptxv-parity-header { justify-content: space-between; border-bottom: 1px solid var(--pptx-border); }
+.pptxv-parity-header h2 { margin: 0; font-size: 14px; }
+.pptxv-parity-header button { border: 0; background: transparent; color: inherit; font-size: 20px; cursor: pointer; }
+.pptxv-parity-body { display: flex; flex-direction: column; gap: 12px; overflow: auto; padding: 16px; font-size: 12px; }
+.pptxv-parity-body fieldset { display: flex; flex-direction: column; gap: 7px; margin: 0; padding: 10px 12px; border: 1px solid var(--pptx-border); border-radius: 6px; }
+.pptxv-parity-body legend { padding: 0 4px; color: var(--pptx-muted-foreground); font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
+.pptxv-parity-body input[type='text'], .pptxv-parity-body input[type='number'] { min-width: 0; padding: 7px 8px; border: 1px solid var(--pptx-border); border-radius: 4px; background: var(--pptx-muted); color: inherit; }
+.pptxv-parity-check, .pptxv-parity-range { display: flex; align-items: center; gap: 8px; min-height: 28px; cursor: pointer; }
+.pptxv-parity-select { display: grid; grid-template-columns: 130px 1fr; align-items: center; gap: 10px; }
+.pptxv-parity-select select { padding: 7px 8px; border: 1px solid var(--pptx-border); border-radius: 4px; background: var(--pptx-muted); color: inherit; }
+.pptxv-parity-range input[type='number'] { width: 58px; }
+.pptxv-parity-footer { justify-content: flex-end; gap: 8px; border-top: 1px solid var(--pptx-border); }
+.pptxv-parity-footer button, .pptxv-parity-tabs button, .pptxv-compare-panel button { padding: 7px 11px; border: 1px solid var(--pptx-border); border-radius: 4px; background: var(--pptx-muted); color: inherit; cursor: pointer; }
+.pptxv-parity-footer .is-primary, .pptxv-parity-tabs .is-active, .pptxv-compare-actions button { border-color: var(--pptx-primary); background: var(--pptx-primary); color: #fff; }
+.pptxv-parity-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--pptx-border); flex-wrap: wrap; }
+.pptxv-parity-swatch-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.pptxv-parity-swatch { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 8px; border: 2px solid transparent; border-radius: 6px; background: var(--pptx-muted); color: inherit; font-size: 11px; cursor: pointer; }
+.pptxv-parity-swatch:hover { border-color: var(--pptx-border); }
+.pptxv-parity-swatch.is-active { border-color: var(--pptx-primary); }
+.pptxv-parity-swatch-preview { display: block; width: 44px; height: 30px; border: 1px solid var(--pptx-border); border-radius: 4px; }
+.pptxv-shortcut-list { display: flex; flex-direction: column; gap: 3px; }
+.pptxv-shortcut-list > div { display: flex; justify-content: space-between; gap: 14px; padding: 7px 8px; border-radius: 4px; background: var(--pptx-muted); }
+.pptxv-shortcut-list kbd { color: var(--pptx-muted-foreground); white-space: nowrap; }
+.pptxv-compare-panel { position: absolute; z-index: 45; inset: 0 0 0 auto; display: flex; flex-direction: column; width: min(440px, 100%); border-left: 1px solid var(--pptx-border); background: var(--pptx-card); color: var(--pptx-foreground); box-shadow: -16px 0 38px rgb(0 0 0 / .2); }
+.pptxv-compare-panel > header { display: flex; justify-content: space-between; padding: 14px 16px; border-bottom: 1px solid var(--pptx-border); }
+.pptxv-compare-panel h2, .pptxv-compare-panel p { margin: 0; } .pptxv-compare-panel header p { margin-top: 3px; color: var(--pptx-muted-foreground); font-size: 11px; }
+.pptxv-compare-actions { padding: 9px 16px; border-bottom: 1px solid var(--pptx-border); }
+.pptxv-compare-list { display: flex; flex-direction: column; gap: 8px; overflow: auto; padding: 12px; }
+.pptxv-compare-row { padding: 10px; border: 1px solid var(--pptx-border); border-radius: 6px; background: var(--pptx-muted); font-size: 11px; }
+.pptxv-compare-row p { margin: 6px 0; color: var(--pptx-muted-foreground); } .pptxv-compare-row div { display: flex; justify-content: flex-end; gap: 6px; } .pptxv-compare-row.is-resolved { opacity: .55; }
+.pptxv-rehearse { position: absolute; z-index: 130; top: 8px; left: 50%; display: flex; align-items: center; gap: 8px; padding: 8px 10px; transform: translateX(-50%); border: 1px solid #ffffff2b; border-radius: 7px; background: #020617ee; color: #f8fafc; box-shadow: 0 10px 28px rgb(0 0 0 / .35); font-size: 11px; }
+.pptxv-rehearse button { padding: 5px 8px; border: 0; border-radius: 4px; background: #ffffff16; color: inherit; cursor: pointer; }
+.pptxv-workspace-pane { position: absolute; z-index: 48; inset: 0 0 0 auto; display: flex; flex-direction: column; width: min(300px, 100%); border-left: 1px solid var(--pptx-border); background: var(--pptx-card); color: var(--pptx-foreground); box-shadow: -12px 0 30px rgb(0 0 0 / .18); }
+.pptxv-workspace-pane > header, .pptxv-slide-sorter > header { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 11px 13px; border-bottom: 1px solid var(--pptx-border); }
+.pptxv-workspace-pane h2, .pptxv-slide-sorter h2 { margin: 0; font-size: 13px; } .pptxv-workspace-pane header button, .pptxv-slide-sorter header button { border: 0; background: transparent; color: inherit; font-size: 18px; cursor: pointer; }
+.pptxv-workspace-list { display: flex; flex-direction: column; gap: 5px; overflow: auto; padding: 8px; }
+.pptxv-selection-row { display: grid; grid-template-columns: 18px 1fr 28px; align-items: center; border-radius: 4px; background: var(--pptx-muted); } .pptxv-selection-row.is-selected { color: var(--pptx-primary); box-shadow: inset 3px 0 var(--pptx-primary); } .pptxv-selection-row button { padding: 7px; border: 0; background: transparent; color: inherit; text-align: left; cursor: pointer; }
+.pptxv-comment-card { display: flex; flex-direction: column; gap: 6px; padding: 8px; border: 1px solid var(--pptx-border); border-radius: 6px; } .pptxv-comment-card.is-resolved { opacity: .6; } .pptxv-comment-card textarea, .pptxv-workspace-list > textarea { min-height: 58px; padding: 6px; border: 1px solid var(--pptx-border); border-radius: 4px; background: var(--pptx-muted); color: inherit; resize: vertical; } .pptxv-comment-card div { display: flex; gap: 4px; }
+.pptxv-slide-sorter { position: absolute; z-index: 50; inset: 0; display: flex; flex-direction: column; background: color-mix(in srgb, var(--pptx-background) 96%, transparent); color: var(--pptx-foreground); }
+.pptxv-sorter-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 14px; overflow: auto; padding: 18px; } .pptxv-sorter-card { overflow: hidden; border: 2px solid var(--pptx-border); border-radius: 7px; background: var(--pptx-card); } .pptxv-sorter-card.is-current { border-color: var(--pptx-primary); } .pptxv-sorter-card.is-hidden { opacity: .5; } .pptxv-sorter-card > button { display: grid; width: 100%; min-height: 90px; place-items: center; border: 0; background: var(--pptx-muted); color: inherit; font-size: 22px; cursor: pointer; } .pptxv-sorter-card div { display: flex; gap: 3px; padding: 5px; } .pptxv-sorter-card div button { flex: 1; padding: 4px; border: 0; background: transparent; color: inherit; font-size: 9px; cursor: pointer; }
+.pptxv-custom-shows-active { display: flex; align-items: center; gap: 8px; } .pptxv-custom-shows-active select { flex: 1; min-width: 0; padding: 6px 8px; border: 1px solid var(--pptx-border); border-radius: 4px; background: var(--pptx-muted); color: inherit; }
+.pptxv-custom-shows article { display: grid; grid-template-columns: 1fr auto auto auto; gap: 6px; padding: 8px; border: 1px solid var(--pptx-border); border-radius: 6px; } .pptxv-custom-shows article > div { grid-column: 1 / -1; max-height: 140px; overflow: auto; }
+@media (max-width: 767px) { .pptxv-parity-dialog { top: auto; bottom: 0; width: 100%; max-height: 88dvh; transform: translateX(-50%); border-radius: 16px 16px 0 0; } }
+
+
+/* ── Dialog shell override: the Options dialog is wider than parity dialogs ── */
+.pptxv-options-dialog { width: min(56rem, calc(100vw - 32px)); height: min(620px, 88vh); }
+.pptxv-options-dialog .pptxv-parity-body { flex: 1; min-height: 0; padding: 0; gap: 0; }
+.pptxv-options-body { display: flex; flex: 1; min-height: 0; }
+.pptxv-options-nav { display: flex; flex-direction: column; gap: 2px; flex: none; width: 172px; overflow-y: auto; padding: 8px; border-right: 1px solid var(--pptx-border); }
+.pptxv-options-nav button { padding: 8px 10px; border: 0; border-radius: 4px; background: transparent; color: var(--pptx-foreground); font: inherit; font-size: 12px; text-align: left; cursor: pointer; white-space: nowrap; }
+.pptxv-options-nav button:hover { background: var(--pptx-accent); color: var(--pptx-accent-foreground); }
+.pptxv-options-nav button.is-active { background: color-mix(in srgb, var(--pptx-primary) 14%, transparent); color: var(--pptx-primary); font-weight: 600; }
+.pptxv-options-pane { flex: 1; min-width: 0; overflow-y: auto; padding: 14px 18px; font-size: 12px; }
+.pptxv-options-headline { margin: 0 0 12px; font-size: 12px; font-weight: 600; }
+
+/* ── Sections + control rows ── */
+.pptxv-options-section { margin: 0 0 16px; }
+.pptxv-options-section > h3 { margin: 0 0 4px; padding-bottom: 3px; border-bottom: 1px solid var(--pptx-border); color: var(--pptx-muted-foreground); font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
+.pptxv-options-section-desc { margin: 0 0 8px; color: var(--pptx-muted-foreground); font-size: 11px; }
+/* File > Options > General > Fonts: families added from a local file. */
+.pptxv-options-font-list {
+	margin: 4px 0 0;
+	padding: 0;
+	list-style: none;
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	font-size: 12px;
+}
+.pptxv-options-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 28px; padding: 2px 0; }
+.pptxv-options-row.is-indent { padding-left: 22px; }
+label.pptxv-options-row { cursor: pointer; }
+.pptxv-options-row-label { display: inline-flex; align-items: center; gap: 5px; min-width: 0; }
+.pptxv-options-info { display: inline-grid; place-items: center; width: 13px; height: 13px; flex: none; border: 1px solid currentcolor; border-radius: 50%; color: var(--pptx-primary); font-size: 9px; font-style: normal; cursor: help; opacity: .75; }
+.pptxv-options-row select, .pptxv-options-row input[type='text'], .pptxv-options-row input[type='number'] { max-width: 55%; padding: 5px 7px; border: 1px solid var(--pptx-border); border-radius: 4px; background: var(--pptx-muted); color: inherit; font: inherit; font-size: 12px; }
+.pptxv-options-row input[type='number'] { width: 72px; text-align: right; }
+.pptxv-options-row input[type='text'] { width: 180px; }
+.pptxv-options-row input[type='checkbox'] { flex: none; width: 15px; height: 15px; accent-color: var(--pptx-primary); }
+.pptxv-options-unit { color: var(--pptx-muted-foreground); font-size: 11px; }
+.pptxv-options-number { display: inline-flex; align-items: center; gap: 6px; }
+.pptxv-options-action { padding: 6px 11px; border: 1px solid var(--pptx-border); border-radius: 4px; background: var(--pptx-muted); color: inherit; font: inherit; font-size: 12px; cursor: pointer; }
+.pptxv-options-action:hover:not(:disabled) { background: var(--pptx-accent); color: var(--pptx-accent-foreground); }
+.pptxv-options-action:disabled { opacity: .45; cursor: default; }
+
+/* ── Customize Ribbon pane ── */
+.pptxv-options-ribbon-list { display: flex; flex-direction: column; gap: 2px; padding: 6px; border: 1px solid var(--pptx-border); border-radius: 6px; }
+.pptxv-options-ribbon-list .pptxv-parity-check.is-locked { opacity: .55; cursor: not-allowed; }
+
+/* ── Quick Access pane ── */
+.pptxv-options-qa { display: flex; align-items: stretch; gap: 10px; }
+.pptxv-options-qa-col { flex: 1; min-width: 0; }
+.pptxv-options-qa-title { margin: 0 0 4px; color: var(--pptx-muted-foreground); font-size: 11px; font-weight: 600; }
+.pptxv-options-qa-list { display: flex; flex-direction: column; gap: 2px; height: 190px; overflow-y: auto; padding: 4px; border: 1px solid var(--pptx-border); border-radius: 6px; }
+.pptxv-options-qa-list button { padding: 6px 8px; border: 0; border-radius: 4px; background: transparent; color: var(--pptx-foreground); font: inherit; font-size: 12px; text-align: left; cursor: pointer; }
+.pptxv-options-qa-list button:hover { background: var(--pptx-accent); color: var(--pptx-accent-foreground); }
+.pptxv-options-qa-list button.is-selected { background: color-mix(in srgb, var(--pptx-primary) 16%, transparent); color: var(--pptx-primary); }
+.pptxv-options-qa-arrows { display: flex; flex-direction: column; justify-content: center; gap: 6px; }
+
+/* ── Add-ins pane ── */
+.pptxv-options-addins-head { display: grid; grid-template-columns: 1fr auto auto; gap: 8px; padding: 0 8px 4px; border-bottom: 1px solid var(--pptx-border); color: var(--pptx-muted-foreground); font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
+.pptxv-options-addins h4 { margin: 12px 0 4px; font-size: 11px; }
+.pptxv-options-addins table { width: 100%; border-collapse: collapse; text-align: left; }
+.pptxv-options-addins td { padding: 5px 8px; border-bottom: 1px solid color-mix(in srgb, var(--pptx-border) 55%, transparent); font-size: 11px; }
+.pptxv-options-addins td:nth-child(2) { color: var(--pptx-muted-foreground); font-family: ui-monospace, monospace; font-size: 10px; }
+.pptxv-options-addins td:nth-child(3) { color: var(--pptx-muted-foreground); }
+.pptxv-options-addins tr { cursor: pointer; }
+.pptxv-options-addins tr:hover { background: var(--pptx-accent); }
+.pptxv-options-addins tr.is-selected { background: color-mix(in srgb, var(--pptx-primary) 12%, transparent); }
+.pptxv-options-addins-empty { padding: 4px 8px; color: var(--pptx-muted-foreground); font-style: italic; }
+.pptxv-options-addins-detail { margin-top: 10px; padding: 10px; border: 1px solid var(--pptx-border); border-radius: 6px; background: var(--pptx-muted); }
+.pptxv-options-addins-detail p { margin: 0 0 4px; font-size: 11px; }
+.pptxv-options-addins-detail p:last-child { margin: 0; color: var(--pptx-muted-foreground); font-family: ui-monospace, monospace; font-size: 10px; }
+
+/* ── Title-bar Quick Access strip ── */
+.pptxv-qat { display: inline-flex; align-items: center; gap: 2px; }
+.pptxv-qat[hidden] { display: none; }
+.pptxv-qat .pptxv-btn-label { padding-left: 4px; font-size: 11px; white-space: nowrap; }
+.pptxv-qat .pptxv-btn-pill { width: auto; padding: 0 6px; }
+
+/* ── End of slide show (black slide) + in-show context menu ── */
+.pptxv-endshow { position: absolute; inset: 0; z-index: 60; display: grid; place-items: center; border: 0; background: #000; color: #e5e7eb; font-size: 13px; cursor: pointer; }
+.pptxv-showmenu { position: absolute; z-index: 65; display: flex; flex-direction: column; min-width: 160px; padding: 4px; border: 1px solid var(--pptx-border); border-radius: 6px; background: var(--pptx-card); color: var(--pptx-card-foreground); box-shadow: 0 10px 28px rgb(0 0 0 / .35); }
+.pptxv-showmenu button { padding: 7px 10px; border: 0; border-radius: 4px; background: transparent; color: inherit; font: inherit; font-size: 12px; text-align: left; cursor: pointer; }
+.pptxv-showmenu button:hover { background: var(--pptx-accent); color: var(--pptx-accent-foreground); }
+
+/* ── Option-driven viewer root classes ── */
+.pptxv.pptxv-reduced-motion *, .pptxv.pptxv-reduced-motion *::before, .pptxv.pptxv-reduced-motion *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
+.pptxv.pptxv-no-hw-accel * { will-change: auto !important; backface-visibility: visible !important; perspective: none !important; }
+.pptxv.pptxv-compat-display .pptxv-stage-wrap { box-shadow: none; }
+.pptxv.pptxv-compat-display .pptxv-stage { image-rendering: crisp-edges; text-rendering: optimizeSpeed; }
+.pptxv.pptxv-no-show-popup .pptxv-presentation-touch-prev,
+.pptxv.pptxv-no-show-popup .pptxv-presentation-touch-next,
+.pptxv.pptxv-no-show-popup .pptxv-presentation-touch-counter { display: none !important; }
+@media (max-width: 767px) { .pptxv-options-body { flex-direction: column; } .pptxv-options-nav { flex-direction: row; width: 100%; overflow-x: auto; border-right: 0; border-bottom: 1px solid var(--pptx-border); } }
+
+
+/* Animations > Animation: the full 27-preset catalogue in three captioned
+   columns. Capped and scrollable rather than tall: the ribbon is one row high
+   and the layout-parity spec fails the whole tab if a group grows it. */
+.pptxv-animation-gallery {
+	display: flex;
+	align-items: flex-start;
+	gap: 8px;
+	max-height: 62px;
+	padding: 2px 4px;
+	overflow-y: auto;
+	border: 1px solid color-mix(in srgb, var(--pptx-border) 60%, transparent);
+	border-radius: var(--pptx-radius);
+	background: color-mix(in srgb, var(--pptx-muted) 30%, transparent);
+}
+.pptxv-animation-gallery-column { display: grid; gap: 1px; }
+.pptxv-animation-gallery-caption {
+	font-size: 9px;
+	line-height: 1.2;
+	font-weight: 600;
+	color: var(--pptx-muted-foreground);
+}
+.pptxv-animation-gallery-items { display: flex; flex-wrap: wrap; gap: 1px; max-width: 150px; }
+.pptxv-btn.pptxv-animation-preset {
+	width: auto;
+	height: auto;
+	padding: 1px 4px;
+	font-size: 9px;
+	line-height: 1.3;
+	white-space: nowrap;
+}
+/* Animations > Motion Paths: the five PowerPoint families in captioned
+   columns, sharing the preset gallery's capped/scrollable box so the ribbon
+   keeps its single-row height. */
+.pptxv-motion-path-gallery {
+	display: flex;
+	align-items: flex-start;
+	gap: 8px;
+	max-height: 62px;
+	padding: 2px 4px;
+	overflow-y: auto;
+	border: 1px solid color-mix(in srgb, var(--pptx-border) 60%, transparent);
+	border-radius: var(--pptx-radius);
+	background: color-mix(in srgb, var(--pptx-muted) 30%, transparent);
+}
+.pptxv-motion-path-gallery-column { display: grid; gap: 1px; }
+.pptxv-motion-path-gallery-caption {
+	font-size: 9px;
+	line-height: 1.2;
+	font-weight: 600;
+	color: var(--pptx-muted-foreground);
+}
+.pptxv-motion-path-gallery-items { display: flex; flex-wrap: wrap; gap: 1px; max-width: 150px; }
+.pptxv-btn.pptxv-motion-path-preset {
+	width: auto;
+	height: auto;
+	padding: 1px 4px;
+	font-size: 9px;
+	line-height: 1.3;
+	white-space: nowrap;
+}
+/* Inspector > Animation > Motion Path row (same look as .pptxv-anim-field,
+   under its own class so the panel's positional field lookups still hold). */
+.pptxv-motion-path-row { display: grid; gap: 2px; font-size: 11px; }
+.pptxv-motion-path-row > span { color: var(--pptx-muted-foreground); }
+.pptxv-motion-path-row select {
+	width: 100%;
+	padding: 3px 4px;
+	border: 1px solid var(--pptx-border);
+	border-radius: var(--pptx-radius);
+	background: var(--pptx-background);
+	color: var(--pptx-foreground);
+	font-size: 11px;
+}
+.pptxv-motion-path-hint { font-size: 10px; color: var(--pptx-muted-foreground); }
+/* The on-canvas path overlay lives inside the scaled stage; only the end
+   handle takes pointers so the slide underneath stays clickable. */
+svg[data-pptx-motion-path-overlay] { pointer-events: none; }
+svg[data-pptx-motion-path-overlay] [data-pptx-motion-path-handle] { pointer-events: auto; }
+.pptxv-animation-timeline {
+	display: grid;
+	gap: 6px;
+	min-width: 220px;
+	padding: 4px 8px;
+	border-left: 1px solid var(--pptx-border);
+}
+.pptxv-animation-timeline-list { display: grid; gap: 2px; max-height: 112px; overflow: auto; }
+.pptxv-animation-timeline-row {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) 28px 28px;
+	align-items: center;
+	gap: 2px;
+	padding: 2px 4px;
+	border-radius: var(--pptx-radius);
+	background: color-mix(in srgb, var(--pptx-muted) 65%, transparent);
+}
+.pptxv-animation-timeline-row.is-selected { outline: 1px solid var(--pptx-ring); }
+.pptxv-animation-timeline-row.is-native { font-style: italic; opacity: 0.7; grid-template-columns: minmax(0, 1fr); }
+.pptxv-animation-timeline-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pptxv-animation-timing-controls { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 4px; }
+.pptxv-animation-timing-controls label { display: grid; gap: 2px; font-size: 11px; }
+.pptxv-animation-timing-controls :is(select, input) {
+	min-width: 0;
+	width: 100%;
+	padding: 3px;
+	border: 1px solid var(--pptx-border);
+	border-radius: var(--pptx-radius);
+	background: var(--pptx-background);
+	color: var(--pptx-foreground);
+}
+
+
+/* ── Docked Animation panel ──────────────────────────────────────────── */
+.pptxv-inspector-animation {
+	display: grid;
+	gap: 6px;
+	flex: none;
+	padding: 8px 10px;
+	border-top: 1px solid var(--pptx-border);
+	max-height: 40%;
+	overflow-y: auto;
+	font-size: 11px;
+}
+.pptxv-inspector-animation[hidden] { display: none; }
+.pptxv-anim-header { display: flex; align-items: center; justify-content: space-between; }
+.pptxv-anim-preview-btn {
+	padding: 2px 6px;
+	border: none;
+	border-radius: var(--pptx-radius);
+	background: transparent;
+	color: var(--pptx-primary);
+	font-size: 10px;
+	cursor: pointer;
+}
+.pptxv-anim-preview-btn:hover { background: var(--pptx-accent); }
+.pptxv-anim-field { display: grid; gap: 2px; font-size: 11px; }
+.pptxv-anim-field > span { color: var(--pptx-muted-foreground); }
+.pptxv-anim-field :is(select, input) {
+	min-width: 0;
+	width: 100%;
+	padding: 3px;
+	border: 1px solid var(--pptx-border);
+	border-radius: var(--pptx-radius);
+	background: var(--pptx-muted);
+	color: var(--pptx-foreground);
+}
+.pptxv-anim-options { display: grid; gap: 6px; }
+.pptxv-anim-options[hidden] { display: none; }
+.pptxv-anim-direction { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.pptxv-anim-direction > span { flex-basis: 100%; }
+.pptxv-anim-direction-btn {
+	padding: 3px 6px;
+	border: 1px solid var(--pptx-border);
+	border-radius: var(--pptx-radius);
+	background: var(--pptx-muted);
+	color: var(--pptx-muted-foreground);
+	font-size: 10px;
+	cursor: pointer;
+}
+.pptxv-anim-direction-btn:hover:not(:disabled) { background: var(--pptx-accent); color: var(--pptx-accent-foreground); }
+.pptxv-anim-direction-btn.is-active {
+	border-color: var(--pptx-primary);
+	background: color-mix(in srgb, var(--pptx-primary) 20%, transparent);
+	color: var(--pptx-primary);
+}
+.pptxv-anim-timeline { display: grid; gap: 4px; }
+.pptxv-anim-timeline[hidden] { display: none; }
+.pptxv-anim-bar {
+	position: relative;
+	height: 22px;
+	overflow: hidden;
+	border: 1px solid var(--pptx-border);
+	border-radius: var(--pptx-radius);
+	background: color-mix(in srgb, var(--pptx-muted) 50%, transparent);
+}
+.pptxv-anim-bar-seg { position: absolute; top: 2px; bottom: 2px; border-radius: 2px; }
+.pptxv-anim-bar-seg.is-entrance { background: rgb(34 197 94 / 0.6); }
+.pptxv-anim-bar-seg.is-emphasis { background: rgb(234 179 8 / 0.6); }
+.pptxv-anim-bar-seg.is-exit { background: rgb(239 68 68 / 0.6); }
+.pptxv-anim-bar-seg.is-none { background: color-mix(in srgb, var(--pptx-muted-foreground) 40%, transparent); }
+.pptxv-anim-bar-seg.is-selected { outline: 1px solid var(--pptx-ring); }
+
+/* ── Comments tab: threads, replies, edit-in-place ───────────────────── */
+.pptxv-inspector-comment-badge {
+	margin-left: 6px;
+	padding: 1px 6px;
+	border-radius: 999px;
+	background: rgb(34 197 94 / 0.25);
+	color: rgb(34 197 94);
+	font-size: 9px;
+	font-weight: 500;
+}
+.pptxv-inspector-comment.is-reply {
+	border-bottom: none;
+	padding: 4px 0 4px 8px;
+	border-left: 2px solid color-mix(in srgb, var(--pptx-primary) 40%, transparent);
+}
+.pptxv-inspector-comment-replies { margin-top: 4px; display: grid; gap: 2px; }
+.pptxv-inspector-comment-replies-toggle {
+	margin-top: 4px;
+	padding: 0;
+	border: none;
+	background: transparent;
+	color: var(--pptx-muted-foreground);
+	font-size: 10px;
+	text-align: left;
+	cursor: pointer;
+}
+.pptxv-inspector-comment-replies-toggle:hover { color: var(--pptx-foreground); }
+.pptxv-inspector-comment-edit,
+.pptxv-inspector-comment-reply-form { display: grid; gap: 4px; margin-top: 4px; }
+.pptxv-inspector-comment-reply-form {
+	padding-left: 8px;
+	border-left: 2px solid color-mix(in srgb, var(--pptx-primary) 40%, transparent);
+}
+
+
+/* ── Quick Styles gallery ────────────────────────────────────────────── */
+.pptxv-quick-styles {
+	display: grid;
+	grid-template-columns: repeat(6, minmax(0, 1fr));
+	gap: 4px;
+}
+.pptxv-quick-style {
+	height: 26px;
+	min-width: 0;
+	padding: 0;
+	border: 1px solid var(--pptx-border);
+	border-radius: var(--pptx-radius);
+	cursor: pointer;
+}
+.pptxv-quick-style:hover:not(:disabled) { outline: 2px solid var(--pptx-primary); outline-offset: -1px; }
+.pptxv-quick-style:disabled { opacity: 0.5; cursor: default; }
+
+/* ── 3D text ─────────────────────────────────────────────────────────── */
+.pptxv-text3d-options { display: grid; gap: 6px; }
+.pptxv-text3d-options[hidden] { display: none; }
+.pptxv-text3d-bevel {
+	display: grid;
+	gap: 4px;
+	padding-left: 6px;
+	border-left: 2px solid var(--pptx-border);
+}
+.pptxv-text3d-bevel-label { color: var(--pptx-muted-foreground); font-size: 10px; text-transform: uppercase; letter-spacing: 0.04em; }
+.pptxv-text3d-color { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+
+/* ── Chart data grid ─────────────────────────────────────────────────── */
+.pptxv-chart-grid { display: grid; gap: 4px; margin: 6px 0; }
+.pptxv-chart-grid[hidden] { display: none; }
+.pptxv-chart-grid-toolbar { display: flex; justify-content: flex-end; gap: 4px; }
+.pptxv-chart-grid-btn {
+	padding: 2px 6px;
+	border: 1px solid var(--pptx-border);
+	border-radius: var(--pptx-radius);
+	background: var(--pptx-muted);
+	color: var(--pptx-foreground);
+	font: inherit;
+	font-size: 10px;
+	cursor: pointer;
+}
+.pptxv-chart-grid-btn:hover:not(:disabled) { background: var(--pptx-accent); color: var(--pptx-accent-foreground); }
+.pptxv-chart-grid-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+.pptxv-chart-grid-table th, .pptxv-chart-grid-table td { padding: 1px; }
+.pptxv-chart-grid-table th { font-weight: 400; }
+.pptxv-chart-grid-table :is(th, td) { display: table-cell; white-space: nowrap; }
+.pptxv-chart-grid-cell {
+	box-sizing: border-box;
+	width: 100%;
+	min-width: 52px;
+	padding: 2px 4px;
+	border: 1px solid var(--pptx-border);
+	border-radius: var(--pptx-radius);
+	background: var(--pptx-background);
+	color: var(--pptx-foreground);
+	font: inherit;
+	font-size: 11px;
+}
+.pptxv-chart-grid-cell:focus-visible { outline: 2px solid var(--pptx-ring); outline-offset: -1px; }
+/* Ring-highlight for the cell matching the on-canvas chart part selection. */
+.pptxv-chart-grid-cell-highlight { outline: 2px solid var(--pptx-ring); outline-offset: -1px; }
+.pptxv-chart-grid-remove {
+	margin-left: 2px;
+	padding: 0 3px;
+	border: none;
+	background: transparent;
+	color: var(--pptx-muted-foreground);
+	font: inherit;
+	cursor: pointer;
+}
+.pptxv-chart-grid-remove:hover { color: var(--pptx-destructive); }
+
+/* ── Table data grid ─────────────────────────────────────────────────── */
+.pptxv-table-grid-header { display: flex; align-items: center; justify-content: space-between; gap: 4px; }
+.pptxv-table-grid-toolbar { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 6px; }
+.pptxv-table-grid-toolbar[hidden] { display: none; }
+.pptxv-table-grid-btn {
+	padding: 2px 6px;
+	border: 1px solid var(--pptx-border);
+	border-radius: var(--pptx-radius);
+	background: var(--pptx-muted);
+	color: var(--pptx-foreground);
+	font: inherit;
+	font-size: 10px;
+	cursor: pointer;
+}
+.pptxv-table-grid-btn:hover:not(:disabled) { background: var(--pptx-accent); color: var(--pptx-accent-foreground); }
+.pptxv-table-grid-btn:disabled { opacity: 0.5; cursor: default; }
+.pptxv-table-grid-scroll { overflow-x: auto; }
+.pptxv-table-grid-body { display: flex; flex-direction: column; width: max-content; min-width: 100%; font-size: 11px; }
+.pptxv-table-grid-row { display: flex; }
+.pptxv-table-grid-head {
+	display: flex;
+	flex: 1 1 56px;
+	align-items: center;
+	justify-content: center;
+	gap: 2px;
+	min-width: 0;
+	margin: -1px 0 0 -1px;
+	padding: 1px 3px;
+	border: 1px solid var(--pptx-border);
+	background: var(--pptx-muted);
+	color: var(--pptx-muted-foreground);
+	white-space: nowrap;
+}
+.pptxv-table-grid-gutter { flex: 0 0 38px; }
+.pptxv-table-grid-cell {
+	display: flex;
+	flex: 1 1 56px;
+	min-width: 0;
+	margin: -1px 0 0 -1px;
+	padding: 1px;
+	border: 1px solid var(--pptx-border);
+}
+.pptxv-table-grid-input {
+	box-sizing: border-box;
+	width: 100%;
+	min-width: 0;
+	padding: 2px 4px;
+	border: none;
+	background: transparent;
+	color: var(--pptx-foreground);
+	font: inherit;
+	font-size: 11px;
+}
+.pptxv-table-grid-input:focus-visible { outline: 2px solid var(--pptx-ring); outline-offset: -2px; }
+.pptxv-table-grid-input:disabled { opacity: 0.6; }
+.pptxv-table-grid-remove {
+	padding: 0 2px;
+	border: none;
+	background: transparent;
+	color: var(--pptx-muted-foreground);
+	font: inherit;
+	line-height: 1;
+	cursor: pointer;
+}
+.pptxv-table-grid-remove[hidden] { display: none; }
+.pptxv-table-grid-remove:hover { color: var(--pptx-destructive); }
+
+/* ── Media trim timeline ─────────────────────────────────────────────── */
+.pptxv-media-timeline { display: grid; gap: 2px; margin: 6px 0; }
+.pptxv-media-timeline-times { display: flex; justify-content: space-between; }
+.pptxv-media-timeline-time { color: var(--pptx-muted-foreground); font-size: 10px; font-variant-numeric: tabular-nums; }
+.pptxv-media-timeline-bar {
+	position: relative;
+	height: 20px;
+	border-radius: var(--pptx-radius);
+	background: var(--pptx-muted);
+	cursor: pointer;
+	user-select: none;
+	touch-action: none;
+}
+.pptxv-media-timeline-region {
+	position: absolute;
+	top: 0;
+	bottom: 0;
+	border-radius: var(--pptx-radius);
+	background: color-mix(in srgb, var(--pptx-primary) 30%, transparent);
+	pointer-events: none;
+}
+.pptxv-media-timeline-playhead { position: absolute; top: 0; bottom: 0; width: 2px; background: #fff; pointer-events: none; }
+.pptxv-media-timeline-marks { position: absolute; inset: 0; pointer-events: none; }
+.pptxv-media-timeline-mark {
+	position: absolute;
+	top: 0;
+	bottom: 0;
+	width: 4px;
+	margin-left: -2px;
+	padding: 0;
+	border: none;
+	background: rgb(250 204 21 / 0.8);
+	cursor: pointer;
+	pointer-events: auto;
+}
+.pptxv-media-timeline-handle {
+	position: absolute;
+	top: 0;
+	bottom: 0;
+	width: 8px;
+	margin-left: -4px;
+	border-radius: 2px;
+	background: var(--pptx-primary);
+	cursor: ew-resize;
+	touch-action: none;
+}
+.pptxv-media-timeline-handle[hidden] { display: none; }
+
+/* ── Slide transition direction picker ───────────────────────────────── */
+.pptxv-transition-directions { display: grid; gap: 4px; margin-bottom: 8px; }
+.pptxv-transition-directions[hidden] { display: none; }
+.pptxv-transition-dir-row { display: flex; flex-wrap: wrap; gap: 4px; }
+.pptxv-transition-dir-grid { display: grid; grid-template-columns: repeat(3, 24px); gap: 3px; }
+.pptxv-transition-dir-gap { display: block; }
+.pptxv-transition-dir {
+	min-width: 24px;
+	height: 22px;
+	padding: 0 4px;
+	border: 1px solid var(--pptx-border);
+	border-radius: var(--pptx-radius);
+	background: var(--pptx-muted);
+	color: var(--pptx-foreground);
+	font: inherit;
+	font-size: 11px;
+	cursor: pointer;
+}
+.pptxv-transition-dir:hover:not(:disabled) { background: var(--pptx-accent); color: var(--pptx-accent-foreground); }
+.pptxv-transition-dir.is-active { border-color: var(--pptx-primary); background: color-mix(in srgb, var(--pptx-primary) 20%, transparent); color: var(--pptx-primary); }
+.pptxv-transition-sound { margin: 4px 0 0; color: var(--pptx-muted-foreground); font-size: 10px; }
+.pptxv-transition-sound[hidden] { display: none; }
+.pptxv-transition-preview { display: grid; gap: 3px; margin-top: 8px; }
+.pptxv-transition-preview[hidden] { display: none; }
+.pptxv-transition-preview-label { font-size: 10px; color: var(--pptx-muted-foreground); }
+.pptxv-transition-preview-stage {
+	position: relative;
+	display: block;
+	width: 100%;
+	height: 64px;
+	padding: 0;
+	overflow: hidden;
+	border: 1px solid var(--pptx-border);
+	border-radius: 6px;
+	background: var(--pptx-muted);
+	cursor: pointer;
+}
+.pptxv-transition-preview-layer {
+	position: absolute;
+	inset: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	color: var(--pptx-muted-foreground);
+	font-size: 9px;
+}
+.pptxv-transition-preview-layer.is-incoming { background: color-mix(in srgb, var(--pptx-primary) 20%, transparent); }
+.pptxv-transition-preview-layer.is-outgoing { background: var(--pptx-card); }
+
+/* ── Tags card ───────────────────────────────────────────────────────── */
+.pptxv-tags-toggle {
+	display: flex;
+	width: 100%;
+	align-items: center;
+	justify-content: space-between;
+	padding: 0;
+	border: none;
+	background: transparent;
+	color: var(--pptx-foreground);
+	font: inherit;
+	font-size: 11px;
+	cursor: pointer;
+}
+.pptxv-tags-count { color: var(--pptx-muted-foreground); font-size: 10px; }
+.pptxv-tags-list { display: grid; gap: 4px; margin-top: 6px; }
+.pptxv-tags-list[hidden] { display: none; }
+.pptxv-tags-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; gap: 4px; }
+.pptxv-tags-input {
+	min-width: 0;
+	padding: 2px 4px;
+	border: 1px solid var(--pptx-border);
+	border-radius: var(--pptx-radius);
+	background: var(--pptx-background);
+	color: var(--pptx-foreground);
+	font: inherit;
+	font-size: 11px;
+}
+.pptxv-tags-remove {
+	padding: 0 5px;
+	border: none;
+	border-radius: var(--pptx-radius);
+	background: transparent;
+	color: var(--pptx-muted-foreground);
+	font: inherit;
+	cursor: pointer;
+}
+.pptxv-tags-remove:hover { color: var(--pptx-destructive); }
+.pptxv-tags-empty { margin: 6px 0 0; color: var(--pptx-muted-foreground); font-size: 10px; }
+.pptxv-tags-empty[hidden] { display: none; }
+
+/* ── Theme editor card ───────────────────────────────────────────────── */
+.pptxv-theme-name .pptxv-field-input { width: 100%; }
+.pptxv-theme-presets { display: grid; gap: 4px; margin: 8px 0; }
+.pptxv-theme-preset-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; }
+.pptxv-theme-preset {
+	display: grid;
+	min-width: 0;
+	gap: 2px;
+	padding: 4px;
+	border: 1px solid var(--pptx-border);
+	border-radius: var(--pptx-radius);
+	background: transparent;
+	color: var(--pptx-muted-foreground);
+	font: inherit;
+	font-size: 10px;
+	cursor: pointer;
+}
+.pptxv-theme-preset:hover:not(:disabled) { background: var(--pptx-accent); color: var(--pptx-accent-foreground); }
+.pptxv-theme-preset.is-active { border-color: var(--pptx-primary); color: var(--pptx-primary); }
+.pptxv-theme-preset-swatches { display: flex; gap: 2px; }
+.pptxv-theme-preset-dot { display: block; width: 100%; height: 10px; border-radius: 2px; }
+.pptxv-theme-preset-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pptxv-theme-slots { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 8px; margin-bottom: 8px; }
+.pptxv-theme-slot { display: flex; align-items: center; justify-content: space-between; gap: 6px; min-width: 0; font-size: 10px; }
+.pptxv-theme-slot-label { overflow: hidden; color: var(--pptx-muted-foreground); text-overflow: ellipsis; white-space: nowrap; }
+.pptxv-theme-slot-input { width: 26px; height: 20px; padding: 0; border: 1px solid var(--pptx-border); border-radius: 3px; background: transparent; }
+.pptxv-theme-preview {
+	display: grid;
+	gap: 2px;
+	margin: 8px 0;
+	padding: 8px;
+	border: 1px solid var(--pptx-border);
+	border-radius: var(--pptx-radius);
+}
+.pptxv-theme-preview-heading { font-size: 13px; font-weight: 600; }
+.pptxv-theme-preview-body { font-size: 11px; }
+
+/* ── Alt text (image section) ────────────────────────────────────────── */
+.pptxv-image-alt { display: grid; gap: 3px; margin: 6px 0; }
+.pptxv-image-alt-input {
+	box-sizing: border-box;
+	width: 100%;
+	padding: 4px 6px;
+	border: 1px solid var(--pptx-border);
+	border-radius: var(--pptx-radius);
+	background: var(--pptx-background);
+	color: var(--pptx-foreground);
+	font: inherit;
+	font-size: 11px;
+	resize: vertical;
+}
+.pptxv-image-alt-input:focus-visible { outline: 2px solid var(--pptx-ring); outline-offset: -1px; }
+
+
+.pptxv-account { display: flex; flex-direction: column; gap: 28px; max-width: 640px; margin-top: 24px; }
+.pptxv-account-section { padding: 20px; border: 1px solid var(--pptx-border); border-radius: 8px; background: var(--pptx-card); color: var(--pptx-card-foreground); }
+.pptxv-account-section h2 { margin: 0 0 14px; font-size: 14px; }
+.pptxv-account-section p { margin: 6px 0; color: var(--pptx-muted-foreground); font-size: 12px; line-height: 1.6; }
+.pptxv-account-profile-row { display: flex; align-items: center; gap: 16px; }
+.pptxv-account-avatar { display: grid; width: 52px; height: 52px; flex: none; place-items: center; border-radius: 50%; color: #fff; font-size: 18px; font-weight: 600; }
+.pptxv-account-name-field { display: flex; flex: 1; flex-direction: column; gap: 6px; font-size: 11px; color: var(--pptx-muted-foreground); }
+.pptxv-account-name-field input { padding: 8px 10px; border: 1px solid var(--pptx-border); border-radius: 5px; background: var(--pptx-muted); color: var(--pptx-foreground); font-size: 13px; }
+.pptxv-account-swatch-label { margin-top: 16px !important; font-size: 11px !important; }
+.pptxv-account-color-swatch { width: 26px; height: 26px; border: 2px solid transparent; border-radius: 50%; cursor: pointer; }
+.pptxv-account-color-swatch:hover { border-color: var(--pptx-border); }
+.pptxv-account-color-swatch.is-active { border-color: var(--pptx-foreground); }
+.pptxv-account-privacy { font-size: 11px !important; }
+.pptxv-account-notice { color: var(--pptx-primary) !important; font-weight: 600; }
+
+
+.pptxv-ai-toggle.is-active { background: var(--pptx-accent); color: var(--pptx-accent-foreground); }
+.pptxv-ai-toggle-floating {
+	position: absolute;
+	top: 8px;
+	right: 8px;
+	z-index: 12;
+	background: var(--pptx-card);
+	border: 1px solid var(--pptx-border);
+	box-shadow: 0 1px 3px rgb(0 0 0 / 0.18);
+}
+
+/* ── Panel shell (sibling of the inspector inside .pptxv-body) ─────────── */
+.pptxv-ai-panel {
+	position: relative;
+	display: flex;
+	flex-direction: column;
+	flex: none;
+	width: 320px;
+	min-height: 0;
+	border-left: 1px solid var(--pptx-border);
+	background: var(--pptx-card);
+	color: var(--pptx-card-foreground);
+}
+.pptxv-ai-panel[hidden] { display: none; }
+.pptxv-ai-panel.is-loading { opacity: 0.7; }
+
+.pptxv-ai-header {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	flex: none;
+	padding: 8px 12px;
+	border-bottom: 1px solid var(--pptx-border);
+	font-weight: 600;
+}
+.pptxv-ai-header svg { width: 16px; height: 16px; color: var(--pptx-primary); }
+.pptxv-ai-close {
+	margin-left: auto;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	padding: 4px;
+	border: none;
+	border-radius: 4px;
+	background: transparent;
+	color: var(--pptx-muted-foreground);
+	cursor: pointer;
+}
+.pptxv-ai-close:hover { background: var(--pptx-accent); color: var(--pptx-accent-foreground); }
+.pptxv-ai-close svg { color: currentColor; }
+
+/* ── Transcript ───────────────────────────────────────────────────────── */
+.pptxv-ai-messages {
+	flex: 1;
+	min-height: 0;
+	overflow-y: auto;
+	padding: 10px 12px;
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+}
+.pptxv-ai-empty {
+	margin: auto;
+	padding: 12px;
+	color: var(--pptx-muted-foreground);
+	font-size: 0.8125rem;
+	text-align: center;
+}
+.pptxv-ai-msg { display: flex; gap: 8px; max-width: 100%; }
+.pptxv-ai-msg-avatar {
+	flex: none;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 24px;
+	height: 24px;
+	margin-top: 2px;
+	border-radius: 50%;
+	background: color-mix(in srgb, var(--pptx-primary) 15%, transparent);
+	color: var(--pptx-primary);
+}
+.pptxv-ai-msg-avatar svg { width: 14px; height: 14px; }
+.pptxv-ai-msg-user .pptxv-ai-msg-avatar {
+	background: var(--pptx-secondary);
+	color: var(--pptx-muted-foreground);
+}
+.pptxv-ai-msg-body { display: flex; flex-direction: column; gap: 6px; min-width: 0; flex: 1; }
+.pptxv-ai-msg-text {
+	font-size: 0.8125rem;
+	line-height: 1.5;
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+	color: var(--pptx-foreground);
+}
+.pptxv-ai-msg-user .pptxv-ai-msg-text {
+	align-self: flex-start;
+	padding: 7px 10px;
+	border-radius: 10px;
+	border-bottom-left-radius: 3px;
+	background: var(--pptx-primary);
+	color: var(--pptx-primary-foreground);
+}
+
+/* ── Friendly tool-call activity cards ────────────────────────────────── */
+.pptxv-ai-tool { font-size: 0.75rem; }
+.pptxv-ai-tool-head { display: flex; align-items: center; gap: 6px; }
+.pptxv-ai-tool-icon {
+	flex: none;
+	width: 14px;
+	height: 14px;
+	color: var(--pptx-muted-foreground);
+}
+.pptxv-ai-tool-name { min-width: 0; overflow-wrap: anywhere; color: var(--pptx-foreground); }
+.pptxv-ai-tool-state {
+	margin-left: auto;
+	display: inline-flex;
+	align-items: center;
+	gap: 3px;
+	flex: none;
+	padding: 1px 6px;
+	border-radius: 4px;
+	font-size: 0.625rem;
+	background: var(--pptx-muted);
+	color: var(--pptx-muted-foreground);
+}
+.pptxv-ai-tool-state svg { width: 11px; height: 11px; }
+.pptxv-ai-tool-state.is-done {
+	background: color-mix(in srgb, var(--pptx-primary) 12%, transparent);
+	color: var(--pptx-primary);
+}
+.pptxv-ai-tool-state.is-error {
+	background: color-mix(in srgb, var(--pptx-destructive) 15%, transparent);
+	color: var(--pptx-destructive);
+}
+.pptxv-ai-tool-state.is-running::before {
+	content: '';
+	width: 7px;
+	height: 7px;
+	border-radius: 50%;
+	background: currentColor;
+	animation: pptxv-ai-pulse 1s ease-in-out infinite;
+}
+@keyframes pptxv-ai-pulse { 0%, 100% { opacity: 0.35; } 50% { opacity: 1; } }
+.pptxv-ai-tool-error { margin: 2px 0 0 20px; font-size: 0.6875rem; color: var(--pptx-destructive); }
+.pptxv-ai-tool-details { margin: 2px 0 0 20px; }
+.pptxv-ai-tool-details summary {
+	cursor: pointer;
+	list-style: none;
+	font-size: 0.625rem;
+	color: var(--pptx-muted-foreground);
+}
+.pptxv-ai-tool-details summary::-webkit-details-marker { display: none; }
+.pptxv-ai-tool-details summary:hover { color: var(--pptx-foreground); }
+.pptxv-ai-tool-raw {
+	margin-top: 2px;
+	font-family: ui-monospace, monospace;
+	font-size: 0.625rem;
+	color: var(--pptx-muted-foreground);
+	overflow-wrap: anywhere;
+}
+
+/* ── Staged-proposal review ───────────────────────────────────────────── */
+.pptxv-ai-proposals {
+	flex: none;
+	max-height: 40%;
+	overflow-y: auto;
+	padding: 8px 12px;
+	border-top: 1px solid var(--pptx-border);
+	background: color-mix(in srgb, var(--pptx-secondary) 30%, transparent);
+}
+.pptxv-ai-proposals[hidden] { display: none; }
+.pptxv-ai-proposals-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	margin-bottom: 6px;
+}
+.pptxv-ai-proposals-title { font-size: 0.75rem; font-weight: 700; }
+.pptxv-ai-proposal {
+	margin-bottom: 8px;
+	padding: 8px;
+	border: 1px solid var(--pptx-border);
+	border-radius: 8px;
+	background: var(--pptx-card);
+}
+.pptxv-ai-proposal-eyebrow {
+	margin-bottom: 3px;
+	font-size: 0.625rem;
+	font-weight: 700;
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+	color: var(--pptx-primary);
+}
+.pptxv-ai-proposal-label { font-size: 0.8125rem; font-weight: 600; }
+.pptxv-ai-proposal-btn { display: inline-flex; align-items: center; gap: 4px; }
+.pptxv-ai-proposal-btn svg { width: 13px; height: 13px; }
+.pptxv-ai-proposal-summary {
+	margin: 5px 0 8px;
+	padding-left: 16px;
+	color: var(--pptx-muted-foreground);
+	font-size: 0.75rem;
+	line-height: 1.4;
+}
+.pptxv-ai-proposal-actions { display: flex; gap: 6px; }
+.pptxv-ai-proposal-btn {
+	padding: 4px 12px;
+	border: 1px solid var(--pptx-border);
+	border-radius: 6px;
+	background: var(--pptx-card);
+	color: var(--pptx-foreground);
+	font: inherit;
+	font-size: 0.75rem;
+	cursor: pointer;
+}
+.pptxv-ai-proposal-btn:hover { background: var(--pptx-accent); color: var(--pptx-accent-foreground); }
+.pptxv-ai-proposal-btn.is-accept, .pptxv-ai-proposal-btn.is-accept-all {
+	border-color: var(--pptx-primary);
+	background: var(--pptx-primary);
+	color: var(--pptx-primary-foreground);
+}
+.pptxv-ai-proposal-btn:focus-visible { outline: 2px solid var(--pptx-ring); outline-offset: 1px; }
+
+/* ── Error line + composer ────────────────────────────────────────────── */
+.pptxv-ai-error {
+	flex: none;
+	padding: 6px 12px;
+	color: var(--pptx-destructive);
+	font-size: 0.75rem;
+}
+.pptxv-ai-error[hidden] { display: none; }
+.pptxv-ai-composer {
+	display: flex;
+	align-items: flex-end;
+	gap: 6px;
+	flex: none;
+	padding: 8px 12px;
+	border-top: 1px solid var(--pptx-border);
+}
+.pptxv-ai-input {
+	flex: 1;
+	min-width: 0;
+	max-height: 120px;
+	padding: 7px 9px;
+	border: 1px solid var(--pptx-border);
+	border-radius: 8px;
+	background: var(--pptx-muted);
+	color: var(--pptx-foreground);
+	font: inherit;
+	font-size: 0.8125rem;
+	line-height: 1.4;
+	resize: vertical;
+}
+.pptxv-ai-input:focus-visible { outline: 2px solid var(--pptx-ring); outline-offset: -1px; }
+.pptxv-ai-send {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	flex: none;
+	width: 34px;
+	height: 34px;
+	border: none;
+	border-radius: 8px;
+	background: var(--pptx-primary);
+	color: var(--pptx-primary-foreground);
+	cursor: pointer;
+}
+.pptxv-ai-send svg { width: 16px; height: 16px; }
+.pptxv-ai-send:disabled { opacity: 0.5; cursor: default; }
+.pptxv-ai-panel.is-busy .pptxv-ai-send { background: var(--pptx-destructive); }
+
+@media (max-width: 1023px) {
+	.pptxv-ai-panel {
+		position: absolute;
+		inset: 0 0 0 auto;
+		width: min(360px, 100%);
+		z-index: 14;
+		box-shadow: -4px 0 16px rgb(0 0 0 / 0.24);
+	}
+}
+
+/* ── Mobile: bottom sheet instead of a full-width drawer that hides the
+   canvas. Anchored above the mobile bottom-action nav (64px + safe area) so
+   the slide stage stays visible and tappable above the sheet. Uses the same
+   breakpoint as the rest of the mobile chrome (mobile-sheet-css.ts). ────── */
+@media (max-width: 767px), (max-width: 1023px) and (max-height: 520px) {
+	.pptxv-ai-panel {
+		inset: auto 0 calc(64px + env(safe-area-inset-bottom)) 0;
+		width: auto;
+		height: min(75dvh, 640px);
+		z-index: 46;
+		overflow: hidden;
+		border-left: 0;
+		border-top: 1px solid var(--pptx-border);
+		border-radius: 16px 16px 0 0;
+		box-shadow: 0 -12px 36px rgb(0 0 0 / 0.35);
+	}
+	.pptxv.pptxv-presenting .pptxv-ai-panel { display: none; }
+}
+
+
+/* ── Chat history: header "Chats" toggle + saved-chat dropdown ─────────── */
+.pptxv-ai-chats {
+	margin-left: auto;
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	padding: 4px 6px;
+	border: none;
+	border-radius: 4px;
+	background: transparent;
+	color: var(--pptx-muted-foreground);
+	font: inherit;
+	font-size: 0.75rem;
+	font-weight: 500;
+	cursor: pointer;
+}
+.pptxv-ai-chats:hover { background: var(--pptx-accent); color: var(--pptx-accent-foreground); }
+.pptxv-ai-header .pptxv-ai-chats svg { width: 14px; height: 14px; color: currentColor; }
+.pptxv-ai-chats + .pptxv-ai-close { margin-left: 0; }
+.pptxv-ai-history {
+	position: absolute;
+	right: 8px;
+	top: 40px;
+	z-index: 40;
+	width: 256px;
+	border: 1px solid var(--pptx-border);
+	border-radius: 8px;
+	background: var(--pptx-card);
+	color: var(--pptx-card-foreground);
+	box-shadow: 0 12px 32px rgb(0 0 0 / 0.28);
+}
+.pptxv-ai-history[hidden] { display: none; }
+.pptxv-ai-history-head {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 6px 10px;
+	border-bottom: 1px solid var(--pptx-border);
+}
+.pptxv-ai-history-title {
+	font-size: 0.6875rem;
+	font-weight: 700;
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+	color: var(--pptx-muted-foreground);
+}
+.pptxv-ai-history-new {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	padding: 2px 6px;
+	border: none;
+	border-radius: 4px;
+	background: var(--pptx-primary);
+	color: var(--pptx-primary-foreground);
+	font: inherit;
+	font-size: 0.6875rem;
+	font-weight: 500;
+	cursor: pointer;
+}
+.pptxv-ai-history-new svg { width: 12px; height: 12px; }
+.pptxv-ai-history-empty {
+	margin: 0;
+	padding: 16px 12px;
+	text-align: center;
+	font-size: 0.75rem;
+	color: var(--pptx-muted-foreground);
+}
+.pptxv-ai-history-list {
+	margin: 0;
+	padding: 4px 0;
+	list-style: none;
+	max-height: 256px;
+	overflow-y: auto;
+}
+.pptxv-ai-history-row { display: flex; align-items: center; gap: 4px; padding: 0 4px; }
+.pptxv-ai-history-resume {
+	display: flex;
+	flex: 1;
+	min-width: 0;
+	align-items: flex-start;
+	gap: 8px;
+	padding: 6px 8px;
+	border: none;
+	border-radius: 4px;
+	background: transparent;
+	color: var(--pptx-muted-foreground);
+	font: inherit;
+	text-align: left;
+	cursor: pointer;
+}
+.pptxv-ai-history-resume:hover { background: var(--pptx-accent); }
+.pptxv-ai-history-resume.is-active {
+	background: color-mix(in srgb, var(--pptx-accent) 60%, transparent);
+}
+.pptxv-ai-history-resume svg { flex: none; width: 14px; height: 14px; margin-top: 2px; }
+.pptxv-ai-history-text { display: flex; min-width: 0; flex: 1; flex-direction: column; }
+.pptxv-ai-history-name {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	font-size: 0.75rem;
+	font-weight: 500;
+	color: var(--pptx-foreground);
+}
+.pptxv-ai-history-meta { font-size: 0.625rem; color: var(--pptx-muted-foreground); }
+.pptxv-ai-history-delete {
+	display: inline-flex;
+	flex: none;
+	padding: 4px;
+	border: none;
+	border-radius: 4px;
+	background: transparent;
+	color: var(--pptx-muted-foreground);
+	cursor: pointer;
+}
+.pptxv-ai-history-delete svg { width: 14px; height: 14px; }
+.pptxv-ai-history-delete:hover {
+	background: color-mix(in srgb, var(--pptx-destructive) 10%, transparent);
+	color: var(--pptx-destructive);
+}
+.pptxv-ai-history-hint {
+	margin: 0;
+	padding: 6px 10px;
+	border-top: 1px solid var(--pptx-border);
+	font-size: 0.625rem;
+	color: var(--pptx-muted-foreground);
+}
+
+
+/* ── Focused-target bar ───────────────────────────────────────────────── */
+.pptxv-ai-focus {
+	flex: none;
+	border-bottom: 1px solid var(--pptx-border);
+	background: color-mix(in srgb, var(--pptx-secondary) 30%, transparent);
+}
+.pptxv-ai-focus-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; padding: 6px 10px; }
+.pptxv-ai-focus-label {
+	font-size: 0.625rem;
+	font-weight: 700;
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+	color: var(--pptx-muted-foreground);
+}
+.pptxv-ai-focus-chip {
+	max-width: 10rem;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	padding: 1px 8px;
+	border-radius: 999px;
+	font-size: 0.6875rem;
+	background: var(--pptx-muted);
+	color: var(--pptx-muted-foreground);
+}
+.pptxv-ai-focus-chip.is-strong {
+	background: color-mix(in srgb, var(--pptx-primary) 15%, transparent);
+	color: var(--pptx-primary);
+}
+.pptxv-ai-focus-pinned {
+	padding: 1px 6px;
+	border-radius: 999px;
+	font-size: 0.625rem;
+	font-weight: 600;
+	background: color-mix(in srgb, var(--pptx-primary) 15%, transparent);
+	color: var(--pptx-primary);
+}
+.pptxv-ai-focus-actions { margin-left: auto; display: inline-flex; align-items: center; gap: 2px; }
+.pptxv-ai-focus-btn {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	padding: 4px;
+	border: none;
+	border-radius: 6px;
+	background: transparent;
+	color: var(--pptx-muted-foreground);
+	cursor: pointer;
+}
+.pptxv-ai-focus-btn svg { width: 14px; height: 14px; }
+.pptxv-ai-focus-btn:hover { background: var(--pptx-accent); color: var(--pptx-accent-foreground); }
+.pptxv-ai-focus-btn.is-active { background: var(--pptx-primary); color: var(--pptx-primary-foreground); }
+.pptxv-ai-focus-merge {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	padding: 3px 8px;
+	border: none;
+	border-radius: 6px;
+	background: var(--pptx-primary);
+	color: var(--pptx-primary-foreground);
+	font: inherit;
+	font-size: 0.6875rem;
+	font-weight: 600;
+	cursor: pointer;
+}
+.pptxv-ai-focus-merge svg { width: 12px; height: 12px; }
+
+/* ── Pick-mode banner ─────────────────────────────────────────────────── */
+.pptxv-ai-focus-pick {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 5px 10px;
+	border-top: 1px solid color-mix(in srgb, var(--pptx-primary) 25%, transparent);
+	background: color-mix(in srgb, var(--pptx-primary) 6%, transparent);
+}
+.pptxv-ai-focus-pick-icon { width: 14px; height: 14px; color: var(--pptx-primary); animation: pptxv-ai-pulse 1s ease-in-out infinite; }
+.pptxv-ai-focus-pick-hint { font-size: 0.6875rem; font-weight: 600; color: var(--pptx-primary); }
+.pptxv-ai-focus-pick-done {
+	margin-left: auto;
+	padding: 3px 10px;
+	border: none;
+	border-radius: 6px;
+	background: var(--pptx-primary);
+	color: var(--pptx-primary-foreground);
+	font: inherit;
+	font-size: 0.6875rem;
+	font-weight: 600;
+	cursor: pointer;
+}
+
+/* ── On-canvas focus / tool highlight rings ───────────────────────────── */
+.pptxv-ai-hl-layer { position: absolute; inset: 0; pointer-events: none; z-index: 40; }
+.pptxv-ai-hl {
+	position: absolute;
+	border-radius: 3px;
+	box-sizing: border-box;
+	border: 2px solid color-mix(in srgb, #3b82f6 55%, transparent);
+	box-shadow: 0 0 10px 2px color-mix(in srgb, #3b82f6 18%, transparent);
+	animation: pptxv-ai-ring-in 0.9s ease-out;
+}
+.pptxv-ai-hl-active {
+	border-color: color-mix(in srgb, #3b82f6 90%, transparent);
+	box-shadow: none;
+	animation: pptxv-ai-ring-in 0.18s ease-out, pptxv-ai-ring-pulse 1s ease-out infinite;
+}
+@keyframes pptxv-ai-ring-in {
+	0% { opacity: 0; transform: scale(1.04); }
+	100% { opacity: 1; transform: scale(1); }
+}
+@keyframes pptxv-ai-ring-pulse {
+	0% { box-shadow: 0 0 0 0 rgb(59 130 246 / 0.55); }
+	70% { box-shadow: 0 0 0 6px rgb(59 130 246 / 0), 0 0 14px 4px rgb(59 130 246 / 0.28); }
+	100% { box-shadow: 0 0 0 0 rgb(59 130 246 / 0), 0 0 10px 2px rgb(59 130 246 / 0.22); }
+}
+
+/* While the AI is active, tween colour changes on slide elements so an edit
+   fades from its old value to the new one instead of snapping. */
+.pptxv-stage[data-pptx-ai-active='true'] [data-element-id],
+.pptxv-stage[data-pptx-ai-active='true'] [data-element-id] * {
+	transition: color 0.5s ease, fill 0.5s ease, stroke 0.5s ease, background-color 0.5s ease,
+		border-color 0.5s ease;
+}
+
+/* ── Click-to-ask context menu ────────────────────────────────────────── */
+.pptxv-ai-menu {
+	position: fixed;
+	z-index: 60;
+	min-width: 180px;
+	padding: 4px;
+	border: 1px solid var(--pptx-border);
+	border-radius: 8px;
+	background: var(--pptx-popover, var(--pptx-card));
+	color: var(--pptx-popover-foreground, var(--pptx-card-foreground));
+	box-shadow: 0 8px 24px rgb(0 0 0 / 0.24);
+}
+.pptxv-ai-menu-item {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	width: 100%;
+	padding: 7px 10px;
+	border: none;
+	border-radius: 6px;
+	background: transparent;
+	color: inherit;
+	font: inherit;
+	font-size: 0.8125rem;
+	text-align: left;
+	cursor: pointer;
+}
+.pptxv-ai-menu-item svg { width: 14px; height: 14px; color: var(--pptx-primary); }
+.pptxv-ai-menu-item:hover { background: var(--pptx-accent); color: var(--pptx-accent-foreground); }
+
+/* ── Settings-dialog AI export section ────────────────────────────────── */
+.pptxv-ai-settings { display: flex; flex-direction: column; gap: 12px; }
+.pptxv-ai-settings-intro {
+	display: flex;
+	gap: 8px;
+	padding: 10px;
+	border: 1px solid var(--pptx-border);
+	border-radius: 8px;
+	background: color-mix(in srgb, var(--pptx-muted) 40%, transparent);
+}
+.pptxv-ai-settings-intro svg { width: 16px; height: 16px; flex: none; color: var(--pptx-primary); }
+.pptxv-ai-settings-count { font-size: 0.75rem; color: var(--pptx-muted-foreground); }
+.pptxv-ai-settings-detailed { display: flex; align-items: center; gap: 8px; font-size: 0.75rem; }
+.pptxv-ai-settings-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.pptxv-ai-settings-btn {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	padding: 6px 12px;
+	border: 1px solid var(--pptx-border);
+	border-radius: 6px;
+	background: var(--pptx-card);
+	color: var(--pptx-foreground);
+	font: inherit;
+	font-size: 0.75rem;
+	cursor: pointer;
+}
+.pptxv-ai-settings-btn svg { width: 13px; height: 13px; }
+.pptxv-ai-settings-btn:hover { background: var(--pptx-accent); color: var(--pptx-accent-foreground); }
+.pptxv-ai-settings-btn:disabled { opacity: 0.5; cursor: default; }
+.pptxv-ai-settings-status { font-size: 0.75rem; color: var(--pptx-muted-foreground); }
+
+
+.pptxv-reading-view {
+	position: fixed;
+	inset: 0;
+	z-index: 1300;
+	display: flex;
+	flex-direction: column;
+	background: #171717;
+	outline: none;
+}
+.pptxv-reading-view-viewport {
+	display: flex;
+	flex: 1;
+	min-height: 0;
+	align-items: center;
+	justify-content: center;
+}
+.pptxv-reading-view-stage {
+	position: relative;
+	overflow: hidden;
+	background: #fff;
+	box-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.5);
+}
+.pptxv-reading-view-bar {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 12px;
+	padding: 8px 16px;
+	border-top: 1px solid rgb(255 255 255 / 0.1);
+}
+.pptxv-reading-view-counter {
+	min-width: 64px;
+	color: rgb(255 255 255 / 0.7);
+	font-size: 12px;
+	font-variant-numeric: tabular-nums;
+	text-align: center;
+}
+.pptxv-reading-view-btn {
+	color: rgb(255 255 255 / 0.8);
+	background: transparent;
+	border: 0;
+}
+.pptxv-reading-view-btn:hover:not(:disabled) {
+	color: #fff;
+	background: rgb(255 255 255 / 0.15);
+}
+.pptxv-reading-view-btn:disabled {
+	opacity: .3;
+	cursor: default;
+}
+
+
+.pptxv-outline-view {
+	position: fixed;
+	inset: 0;
+	z-index: 1300;
+	display: flex;
+	flex-direction: column;
+	background: #171717;
+	color: #f5f5f5;
+	outline: none;
+}
+.pptxv-outline-view-header {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	padding: 8px 16px;
+	border-bottom: 1px solid rgb(255 255 255 / 0.1);
+}
+.pptxv-outline-view-title { font-size: 13px; font-weight: 600; }
+.pptxv-outline-view-hint {
+	overflow: hidden;
+	flex: 1;
+	color: rgb(255 255 255 / 0.5);
+	font-size: 11px;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+.pptxv-outline-view-btn {
+	color: rgb(255 255 255 / 0.8);
+	background: transparent;
+	border: 0;
+}
+.pptxv-outline-view-btn:hover:not(:disabled) {
+	color: #fff;
+	background: rgb(255 255 255 / 0.15);
+}
+.pptxv-outline-view-list {
+	flex: 1;
+	min-height: 0;
+	overflow: auto;
+	padding: 12px 16px;
+}
+.pptxv-outline-view-row {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 2px 0;
+}
+.pptxv-outline-view-number {
+	flex: none;
+	width: 24px;
+	color: rgb(255 255 255 / 0.4);
+	font-size: 10px;
+	font-variant-numeric: tabular-nums;
+	text-align: right;
+}
+.pptxv-outline-view-input {
+	width: 100%;
+	min-width: 0;
+	padding: 2px 4px;
+	border: 0;
+	border-radius: 3px;
+	background: transparent;
+	color: rgb(255 255 255 / 0.8);
+	font: inherit;
+	font-size: 13px;
+	outline: none;
+}
+.pptxv-outline-view-input.is-title { color: #f5f5f5; font-size: 14px; font-weight: 600; }
+.pptxv-outline-view-input:focus { background: rgb(255 255 255 / 0.1); }
+.pptxv-outline-view-input:read-only { cursor: default; }
+
+
+.pptxv-export-progress-backdrop {
+	position: fixed;
+	inset: 0;
+	z-index: 1200;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background: rgba(0, 0, 0, 0.6);
+	backdrop-filter: blur(4px);
+}
+.pptxv-export-progress-panel {
+	width: min(92vw, 384px);
+	border: 1px solid var(--pptx-border, #33334d);
+	border-radius: calc(var(--pptx-radius, 6px) + 6px);
+	background: var(--pptx-popover, #111827);
+	color: var(--pptx-popover-foreground, #f3f4f6);
+	padding: 24px;
+	box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+	font-family: system-ui, sans-serif;
+}
+.pptxv-export-progress-panel h3 {
+	margin: 0 0 16px;
+	font-size: 14px;
+	font-weight: 600;
+}
+.pptxv-export-progress-track {
+	height: 10px;
+	width: 100%;
+	overflow: hidden;
+	border-radius: 9999px;
+	background: var(--pptx-muted, #1f2937);
+	margin-bottom: 12px;
+}
+.pptxv-export-progress-fill {
+	height: 100%;
+	border-radius: 9999px;
+	background: var(--pptx-primary, #6366f1);
+	transition: width 0.3s ease-out;
+}
+.pptxv-export-progress-status {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	margin-bottom: 16px;
+	font-size: 12px;
+	color: var(--pptx-muted-foreground, #94a3b8);
+}
+.pptxv-export-progress-pct { font-variant-numeric: tabular-nums; }
+.pptxv-export-progress-actions {
+	display: flex;
+	justify-content: flex-end;
+}
+.pptxv-export-progress-actions button {
+	border: 1px solid var(--pptx-border, #33334d);
+	border-radius: var(--pptx-radius, 6px);
+	background: var(--pptx-muted, #1f2937);
+	color: var(--pptx-foreground, #f3f4f6);
+	padding: 6px 16px;
+	font-size: 12px;
+	font-family: inherit;
+	cursor: pointer;
+	transition: background 0.15s;
+}
+.pptxv-export-progress-actions button:hover { background: var(--pptx-accent, #33334d); }
+

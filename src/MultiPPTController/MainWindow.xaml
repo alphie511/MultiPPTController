@@ -1,0 +1,489 @@
+<ui:FluentWindow x:Class="MultiPPTController.MainWindow"
+                 xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                 xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                 xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+                 xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+                 xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+                 xmlns:vm="clr-namespace:MultiPPTController.ViewModels"
+                 xmlns:conv="clr-namespace:MultiPPTController.Converters"
+                 xmlns:behave="clr-namespace:MultiPPTController.Behaviors"
+                 xmlns:ctrl="clr-namespace:MultiPPTController.Controls"
+                 mc:Ignorable="d"
+                 d:DataContext="{d:DesignInstance Type=vm:MainViewModel}"
+                 x:Name="RootWindow"
+                 Title="MultiPPT 多屏同步放映"
+                 Width="1040"
+                 Height="680"
+                 MinWidth="1040"
+                 MinHeight="680"
+                 ExtendsContentIntoTitleBar="True"
+                 WindowBackdropType="None"
+                 WindowStartupLocation="CenterScreen"
+                 Background="Transparent"
+                 FontFamily="{StaticResource AppFont}"
+                 Foreground="{DynamicResource InkBrush}"
+                 AllowDrop="True"
+                 Drop="OnWindowDrop"
+                 DragOver="OnWindowDragOver">
+    <ui:FluentWindow.Resources>
+        <conv:InverseBoolConverter x:Key="InverseBool" />
+        <conv:CountToVisibilityConverter x:Key="ZeroVis" Invert="True" />
+        <conv:CountToVisibilityConverter x:Key="NonZeroVis" />
+        <Storyboard x:Key="BreathStoryboard" RepeatBehavior="Forever" AutoReverse="True">
+            <DoubleAnimation Storyboard.TargetName="PulseDot"
+                             Storyboard.TargetProperty="Opacity"
+                             From="0.35"
+                             To="1"
+                             Duration="0:0:2.4">
+                <DoubleAnimation.EasingFunction>
+                    <SineEase EasingMode="EaseInOut" />
+                </DoubleAnimation.EasingFunction>
+            </DoubleAnimation>
+        </Storyboard>
+    </ui:FluentWindow.Resources>
+
+    <Grid>
+        <Image Source="{DynamicResource WindowBackground}" Stretch="UniformToFill" />
+
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <ui:TitleBar Title=""
+                         Height="32"
+                         Padding="0"
+                         Foreground="{DynamicResource InkBrush}"
+                         ButtonsForeground="{DynamicResource CaptionButtonBrush}"
+                         ButtonsBackground="Transparent">
+                <ui:TitleBar.Header>
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Top" Margin="8,4,0,0">
+                        <Image Source="{StaticResource LogoImage}"
+                               Width="26"
+                               Height="26"
+                               RenderOptions.BitmapScalingMode="HighQuality"
+                               Margin="0,0,8,0" />
+                        <TextBlock Text="MultiPPT 多屏同步放映"
+                                   FontSize="13"
+                                   VerticalAlignment="Center"
+                                   Foreground="{DynamicResource InkBrush}" />
+                    </StackPanel>
+                </ui:TitleBar.Header>
+                <ui:TitleBar.TrailingContent>
+                    <StackPanel Orientation="Horizontal"
+                                VerticalAlignment="Top"
+                                Height="32"
+                                Margin="0">
+                        <Button Style="{StaticResource TitleBarFlatButton}"
+                                Click="OnToggleThemeClick"
+                                ToolTip="切换浅色 / 深色">
+                            <TextBlock x:Name="ThemeGlyph" Text="☽" FontSize="14" />
+                        </Button>
+                        <Button Style="{StaticResource TitleBarFlatButton}"
+                                Content="关于"
+                                Click="OnAboutClick" />
+                    </StackPanel>
+                </ui:TitleBar.TrailingContent>
+            </ui:TitleBar>
+
+            <Grid Grid.Row="1" Margin="28,4,28,10">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <Grid Margin="4,0,4,16">
+                    <Canvas Width="220" Height="92" HorizontalAlignment="Left" IsHitTestVisible="False" Opacity="0.55">
+                        <Ellipse Width="168" Height="58" Stroke="#553D9CFF" StrokeThickness="1.2" Canvas.Left="18" Canvas.Top="18" />
+                        <Ellipse Width="132" Height="42" Stroke="#44C13DFF" StrokeThickness="1" Canvas.Left="36" Canvas.Top="26" />
+                    </Canvas>
+                    <StackPanel>
+                        <TextBlock Text="多屏舞台"
+                                   FontSize="13"
+                                   FontWeight="SemiBold"
+                                   Foreground="{DynamicResource AccentCyanBrush}" />
+                        <StackPanel Orientation="Horizontal" Margin="0,6,0,6">
+                            <TextBlock Text="把每一份"
+                                       FontSize="28"
+                                       FontWeight="SemiBold"
+                                       VerticalAlignment="Center" />
+                            <Border Margin="8,0"
+                                    Padding="10,1"
+                                    CornerRadius="10"
+                                    VerticalAlignment="Center">
+                                <Border.Background>
+                                    <LinearGradientBrush StartPoint="0,0.5" EndPoint="1,0.5">
+                                        <GradientStop Color="#AA3D9CFF" Offset="0" />
+                                        <GradientStop Color="#AAC13DFF" Offset="1" />
+                                    </LinearGradientBrush>
+                                </Border.Background>
+                                <Border.Effect>
+                                    <DropShadowEffect Color="#8A5CFF" BlurRadius="12" ShadowDepth="0" Opacity="0.55" />
+                                </Border.Effect>
+                                <TextBlock Text="PPT"
+                                           FontSize="26"
+                                           FontWeight="Bold"
+                                           Foreground="White" />
+                            </Border>
+                            <TextBlock Text="送到它该在的屏幕"
+                                       FontSize="28"
+                                       FontWeight="SemiBold"
+                                       VerticalAlignment="Center" />
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal">
+                            <Ellipse x:Name="PulseDot"
+                                     Width="8"
+                                     Height="8"
+                                     Margin="0,0,8,0"
+                                     VerticalAlignment="Center"
+                                     Fill="{DynamicResource AccentCyanBrush}" />
+                            <TextBlock Text="{Binding EngineText}"
+                                       Foreground="{DynamicResource MutedBrush}"
+                                       VerticalAlignment="Center" />
+                            <TextBlock Text="  ·  " Foreground="{DynamicResource MutedBrush}" />
+                            <TextBlock Text="{Binding ScreenSummary}"
+                                       Foreground="{DynamicResource MutedBrush}" />
+                        </StackPanel>
+                    </StackPanel>
+                    <Button HorizontalAlignment="Right"
+                            VerticalAlignment="Center"
+                            Style="{StaticResource GhostPillButton}"
+                            Command="{Binding RefreshScreensCommand}"
+                            IsEnabled="{Binding IsPlaying, Converter={StaticResource InverseBool}}">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="↻" Margin="0,0,8,0" FontSize="14" />
+                            <TextBlock Text="刷新屏幕" />
+                        </StackPanel>
+                    </Button>
+                </Grid>
+
+                <Grid Grid.Row="1">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="1.12*" />
+                        <ColumnDefinition Width="16" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <Border CornerRadius="22" Padding="1">
+                        <Border.Background>
+                            <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                                <GradientStop Color="#664AA6FF" Offset="0" />
+                                <GradientStop Color="#55C13DFF" Offset="1" />
+                            </LinearGradientBrush>
+                        </Border.Background>
+                        <Border CornerRadius="21"
+                                Background="{DynamicResource CardFillBrush}"
+                                Padding="20">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="*" />
+                                </Grid.RowDefinitions>
+                                <Grid>
+                                    <StackPanel Orientation="Horizontal">
+                                        <Image Source="{DynamicResource PptIcon}"
+                                               Width="28"
+                                               Height="28"
+                                               Margin="0,0,10,0"
+                                               VerticalAlignment="Center"
+                                               RenderOptions.BitmapScalingMode="HighQuality" />
+                                        <StackPanel>
+                                            <TextBlock Text="片库" FontSize="18" FontWeight="SemiBold" />
+                                            <TextBlock Text="拖入或导入 · 每份可指定多块屏幕"
+                                                       Foreground="{DynamicResource MutedBrush}"
+                                                       FontSize="12"
+                                                       Margin="0,2,0,0" />
+                                        </StackPanel>
+                                    </StackPanel>
+                                    <Button HorizontalAlignment="Right"
+                                            Style="{StaticResource GradientPillButton}"
+                                            Click="OnImportClick"
+                                            IsEnabled="{Binding IsPlaying, Converter={StaticResource InverseBool}}">
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="＋" Margin="0,0,6,0" />
+                                            <TextBlock Text="导入 PPT / PDF" />
+                                        </StackPanel>
+                                    </Button>
+                                </Grid>
+
+                                <Grid Grid.Row="1" Margin="0,16,0,0">
+                                    <Grid Visibility="{Binding HasDecks, Converter={StaticResource ZeroVis}}">
+                                        <Rectangle RadiusX="16"
+                                                   RadiusY="16"
+                                                   Stroke="{DynamicResource DropStrokeBrush}"
+                                                   StrokeThickness="1.4"
+                                                   StrokeDashArray="5 4"
+                                                   Fill="{DynamicResource InnerFillBrush}" />
+                                        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                                            <Image Source="{DynamicResource PptIcon}"
+                                                   Width="86"
+                                                   Height="86"
+                                                   RenderOptions.BitmapScalingMode="HighQuality" />
+                                            <TextBlock Text="把 PPT 或 PDF 拖到这里"
+                                                       FontSize="16"
+                                                       FontWeight="SemiBold"
+                                                       HorizontalAlignment="Center"
+                                                       Margin="0,10,0,4" />
+                                            <TextBlock Text="支持 .pptx / .ppt / .pdf"
+                                                       Foreground="{DynamicResource HintBrush}"
+                                                       HorizontalAlignment="Center"
+                                                       FontSize="12" />
+                                        </StackPanel>
+                                    </Grid>
+
+                                    <ScrollViewer Visibility="{Binding HasDecks, Converter={StaticResource NonZeroVis}}"
+                                                  VerticalScrollBarVisibility="Auto">
+                                        <ItemsControl ItemsSource="{Binding Decks}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Border Margin="0,0,0,10"
+                                                            Padding="12"
+                                                            CornerRadius="14"
+                                                            Background="{DynamicResource InnerFillBrush}"
+                                                            BorderBrush="{DynamicResource GhostBorderBrush}"
+                                                            BorderThickness="1">
+                                                        <Grid>
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="Auto" />
+                                                                <ColumnDefinition Width="*" />
+                                                                <ColumnDefinition Width="240" />
+                                                                <ColumnDefinition Width="Auto" />
+                                                            </Grid.ColumnDefinitions>
+                                                            <Grid Width="56"
+                                                                  Height="36"
+                                                                  Margin="0,0,10,0"
+                                                                  VerticalAlignment="Center">
+                                                                <Image Source="{DynamicResource PptIcon}"
+                                                                       Width="36"
+                                                                       Height="36"
+                                                                       HorizontalAlignment="Center"
+                                                                       VerticalAlignment="Center"
+                                                                       Visibility="{Binding HasCover, Converter={StaticResource ZeroVis}}"
+                                                                       RenderOptions.BitmapScalingMode="HighQuality" />
+                                                                <Border CornerRadius="6"
+                                                                        ClipToBounds="True"
+                                                                        Visibility="{Binding HasCover, Converter={StaticResource NonZeroVis}}">
+                                                                    <Border.Background>
+                                                                        <ImageBrush ImageSource="{Binding Cover}" Stretch="UniformToFill" />
+                                                                    </Border.Background>
+                                                                </Border>
+                                                            </Grid>
+                                                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                                                <TextBlock Text="{Binding DisplayName}"
+                                                                           FontSize="15"
+                                                                           FontWeight="SemiBold"
+                                                                           TextTrimming="CharacterEllipsis" />
+                                                                <TextBlock Text="{Binding Status}"
+                                                                           Foreground="{DynamicResource MutedBrush}"
+                                                                           FontSize="12"
+                                                                           Margin="0,3,0,0" />
+                                                            </StackPanel>
+                                                            <ctrl:ScreenMultiPicker Grid.Column="2"
+                                                                                    Margin="10,0,10,0"
+                                                                                    VerticalAlignment="Center"
+                                                                                    IsEnabled="{Binding DataContext.IsPlaying, ElementName=RootWindow, Converter={StaticResource InverseBool}}" />
+                                                            <Button Grid.Column="3"
+                                                                    Style="{StaticResource GhostPillButton}"
+                                                                    Content="移除"
+                                                                    Padding="12,6"
+                                                                    Command="{Binding DataContext.RemoveCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                                    CommandParameter="{Binding}"
+                                                                    VerticalAlignment="Center" />
+                                                        </Grid>
+                                                    </Border>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </ScrollViewer>
+                                </Grid>
+                            </Grid>
+                        </Border>
+                    </Border>
+
+                    <Border Grid.Column="2" CornerRadius="22" Padding="1">
+                        <Border.Background>
+                            <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                                <GradientStop Color="#55C13DFF" Offset="0" />
+                                <GradientStop Color="#664AA6FF" Offset="1" />
+                            </LinearGradientBrush>
+                        </Border.Background>
+                        <Border CornerRadius="21"
+                                Background="{DynamicResource CardFillBrush}"
+                                Padding="20">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="*" />
+                                </Grid.RowDefinitions>
+                                <StackPanel Orientation="Horizontal">
+                                    <Image Source="{StaticResource MonitorIcon}"
+                                           Width="30"
+                                           Height="30"
+                                           Margin="0,0,10,0"
+                                           VerticalAlignment="Top"
+                                           RenderOptions.BitmapScalingMode="HighQuality" />
+                                    <StackPanel>
+                                        <TextBlock Text="屏幕编排" FontSize="18" FontWeight="SemiBold" />
+                                        <TextBlock Text="预览当前扩展桌面。开播后窗口会铺满对应屏幕。"
+                                                   Foreground="{DynamicResource MutedBrush}"
+                                                   TextWrapping="Wrap"
+                                                   FontSize="12"
+                                                   Margin="0,2,0,0" />
+                                    </StackPanel>
+                                </StackPanel>
+                                <ItemsControl Grid.Row="1" Margin="0,16,0,0" ItemsSource="{Binding ScreenCards}">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <WrapPanel />
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border Width="236"
+                                                    Height="150"
+                                                    Margin="0,0,12,12"
+                                                    CornerRadius="16"
+                                                    Padding="1">
+                                                <Border.Background>
+                                                    <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                                                        <GradientStop Color="#AA3D9CFF" Offset="0" />
+                                                        <GradientStop Color="#AAC13DFF" Offset="1" />
+                                                    </LinearGradientBrush>
+                                                </Border.Background>
+                                                <Border.Effect>
+                                                    <DropShadowEffect Color="#3D9CFF" BlurRadius="16" ShadowDepth="0" Opacity="0.35" />
+                                                </Border.Effect>
+                                                <Border CornerRadius="15"
+                                                        behave:CornerRadiusClip.Enabled="True">
+                                                    <Grid>
+                                                        <Border CornerRadius="15"
+                                                                Background="{DynamicResource InnerFillBrush}"
+                                                                Visibility="{Binding HasCover, Converter={StaticResource ZeroVis}}">
+                                                            <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                                                                <Image Source="{StaticResource MonitorIcon}"
+                                                                       Width="52"
+                                                                       Height="52"
+                                                                       RenderOptions.BitmapScalingMode="HighQuality" />
+                                                                <TextBlock Text="{Binding Label}"
+                                                                           FontWeight="SemiBold"
+                                                                           FontSize="15"
+                                                                           HorizontalAlignment="Center"
+                                                                           Margin="0,8,0,0" />
+                                                                <TextBlock Text="{Binding ResolutionText}"
+                                                                           Foreground="{DynamicResource MutedBrush}"
+                                                                           HorizontalAlignment="Center"
+                                                                           Margin="0,4,0,0" />
+                                                            </StackPanel>
+                                                        </Border>
+                                                        <Border CornerRadius="15"
+                                                                Visibility="{Binding HasCover, Converter={StaticResource NonZeroVis}}">
+                                                            <Border.Background>
+                                                                <ImageBrush ImageSource="{Binding Cover}" Stretch="UniformToFill" />
+                                                            </Border.Background>
+                                                        </Border>
+                                                        <Border VerticalAlignment="Bottom"
+                                                                Padding="10,7"
+                                                                CornerRadius="0,0,15,15"
+                                                                Background="#99081422">
+                                                            <TextBlock Text="{Binding Label}"
+                                                                       Foreground="White"
+                                                                       FontWeight="SemiBold"
+                                                                       FontSize="13" />
+                                                        </Border>
+                                                    </Grid>
+                                                </Border>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </Grid>
+                        </Border>
+                    </Border>
+                </Grid>
+            </Grid>
+
+            <Border Grid.Row="2"
+                    Margin="28,0,28,22"
+                    CornerRadius="22"
+                    Padding="1">
+                <Border.Background>
+                    <LinearGradientBrush StartPoint="0,0.5" EndPoint="1,0.5">
+                        <GradientStop Color="#553D9CFF" Offset="0" />
+                        <GradientStop Color="#55C13DFF" Offset="1" />
+                    </LinearGradientBrush>
+                </Border.Background>
+                <Border CornerRadius="21"
+                        Background="{DynamicResource FooterFillBrush}"
+                        Padding="18,12">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel VerticalAlignment="Center">
+                            <StackPanel Orientation="Horizontal">
+                                <Border Width="16" Height="16" CornerRadius="8" Background="#2F86FF" Margin="0,0,8,0">
+                                    <Path Data="M3,9 L7,13 L15,4"
+                                          Stroke="White"
+                                          StrokeThickness="1.6"
+                                          Stretch="Uniform"
+                                          Margin="3" />
+                                </Border>
+                                <TextBlock Text="{Binding Banner}" FontSize="13" VerticalAlignment="Center" />
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                                <TextBlock Text="✦" Foreground="{DynamicResource AccentCyanBrush}" Margin="2,0,8,0" />
+                                <TextBlock Text="同步方式：各屏同时「下一步动画」，保留单击动效与转场。"
+                                           Foreground="{DynamicResource MutedBrush}"
+                                           FontSize="12" />
+                            </StackPanel>
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                            <Button Style="{StaticResource GhostPillButton}"
+                                    Margin="0,0,8,0"
+                                    Command="{Binding PreviousCommand}">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="‹" FontSize="16" Margin="0,0,6,0" />
+                                    <TextBlock Text="上一页" />
+                                </StackPanel>
+                            </Button>
+                            <Button x:Name="PlayButton"
+                                    Style="{StaticResource StartPillButton}"
+                                    MinWidth="136"
+                                    Margin="0,0,8,0"
+                                    Command="{Binding StartCommand}">
+                                <StackPanel Orientation="Horizontal">
+                                    <Path Data="M0,0 L0,12 L10,6 Z"
+                                          Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                          Width="10"
+                                          Height="12"
+                                          Stretch="Fill"
+                                          Margin="0,0,8,0"
+                                          VerticalAlignment="Center" />
+                                    <TextBlock Text="开始放映" />
+                                </StackPanel>
+                            </Button>
+                            <Button Style="{StaticResource GhostPillButton}"
+                                    Margin="0,0,8,0"
+                                    Command="{Binding NextCommand}">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="下一页" />
+                                    <TextBlock Text="›" FontSize="16" Margin="6,0,0,0" />
+                                </StackPanel>
+                            </Button>
+                            <Button Style="{StaticResource GhostPillButton}"
+                                    Command="{Binding StopCommand}">
+                                <StackPanel Orientation="Horizontal">
+                                    <Border Width="8" Height="8" Background="{DynamicResource InkBrush}" Margin="0,0,8,0" />
+                                    <TextBlock Text="结束" />
+                                </StackPanel>
+                            </Button>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+            </Border>
+        </Grid>
+    </Grid>
+</ui:FluentWindow>

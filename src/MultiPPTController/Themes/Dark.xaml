@@ -1,0 +1,23 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <ImageSource x:Key="WindowBackground">pack://application:,,,/Assets/bg-dark.png</ImageSource>
+    <ImageSource x:Key="PptIcon">pack://application:,,,/Assets/ppt-file.png</ImageSource>
+    <SolidColorBrush x:Key="InkBrush" Color="#F5F8FF" />
+    <SolidColorBrush x:Key="CaptionButtonBrush" Color="#F5F8FF" />
+    <SolidColorBrush x:Key="CaptionHoverBrush" Color="#22FFFFFF" />
+    <SolidColorBrush x:Key="MutedBrush" Color="#93A0B8" />
+    <SolidColorBrush x:Key="HintBrush" Color="#6E7C96" />
+    <SolidColorBrush x:Key="AccentCyanBrush" Color="#3D9CFF" />
+    <SolidColorBrush x:Key="CardFillBrush" Color="#E60A1226" />
+    <SolidColorBrush x:Key="InnerFillBrush" Color="#9908101C" />
+    <SolidColorBrush x:Key="GhostFillBrush" Color="#22FFFFFF" />
+    <SolidColorBrush x:Key="GhostBorderBrush" Color="#44FFFFFF" />
+    <SolidColorBrush x:Key="DropStrokeBrush" Color="#5AA8FF" />
+    <SolidColorBrush x:Key="FooterFillBrush" Color="#B20A1222" />
+    <SolidColorBrush x:Key="ComboPopupBrush" Color="#1A2438" />
+    <SolidColorBrush x:Key="ComboItemHoverBrush" Color="#2C3D5C" />
+    <Color x:Key="GlowColor">#7A5CFF</Color>
+    <Color x:Key="GradStart">#2F86FF</Color>
+    <Color x:Key="GradMid">#6A4DFF</Color>
+    <Color x:Key="GradEnd">#C13DFF</Color>
+</ResourceDictionary>
